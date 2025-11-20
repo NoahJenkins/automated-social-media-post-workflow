@@ -33,8 +33,8 @@ def run_social_media_workflow():
 def main():
     # Check for API keys
     required_keys = [
-        "OPENROUTER_API_KEY", 
-        "SERPER_API_KEY", 
+        "GEMINI_API_KEY", 
+        "BRAVE_API_KEY", 
         "X_CONSUMER_KEY", 
         "X_CONSUMER_SECRET", 
         "X_ACCESS_TOKEN", 

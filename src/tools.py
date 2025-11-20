@@ -1,65 +1,52 @@
 import os
 import requests
 import tweepy
-from crewai_tools import BaseTool, SerperDevTool
+import base64
+from crewai_tools import BaseTool, BraveSearchTool
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class ImageGenTool(BaseTool):
     name: str = "Image Generation Tool"
-    description: str = "Generates an image based on a text prompt using OpenRouter's DALL-E 3 or similar model. Returns the URL of the generated image."
+    description: str = "Generates an image based on a text prompt using Gemini's Imagen 3 model. Returns the local file path of the generated image."
 
     def _run(self, prompt: str) -> str:
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            return "Error: OPENROUTER_API_KEY not found in environment variables."
+            return "Error: GEMINI_API_KEY not found in environment variables."
 
+        # Using Gemini's Imagen 3 model
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
         headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/crewAIInc/crewAI", # Required by OpenRouter
-            "X-Title": "CrewAI Social Media Agent" # Required by OpenRouter
+            "Content-Type": "application/json"
         }
-
-        # Using openai/gpt-5-image-mini as requested
+        
         payload = {
-            "model": "openai/gpt-5-image-mini",
-            "prompt": prompt,
-            "n": 1,
-            "size": "1024x1024"
+            "instances": [{"prompt": prompt}],
+            "parameters": {"sampleCount": 1}
         }
 
         try:
-            # Note: OpenRouter's image generation endpoint might differ slightly from standard OpenAI.
-            # Assuming standard OpenAI-compatible image generation endpoint structure for now.
-            # If OpenRouter uses a different path for images, this URL needs adjustment.
-            # Standard OpenAI is https://api.openai.com/v1/images/generations
-            # OpenRouter usually proxies chat/completions. For images, we check docs or assume standard proxy.
-            # Let's try the standard chat completion endpoint first if it's a text-to-image model disguised as chat,
-            # BUT usually image models have a specific endpoint.
-            # Since 'openai/gpt-5-image-mini' is likely a placeholder or specific model, we'll use the standard
-            # OpenRouter completions endpoint if it supports image generation via prompt, OR the image generation endpoint.
-            # Given OpenRouter's structure, it often proxies standard OpenAI endpoints.
-            
-            # However, for safety and standard practice with OpenRouter image models (like DALL-E 3 via OpenRouter),
-            # we often use the standard OpenAI client pointed to OpenRouter base URL.
-            # Here we use raw requests for transparency.
-            
-            response = requests.post(
-                "https://openrouter.ai/api/v1/images/generations",
-                headers=headers,
-                json=payload
-            )
+            response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
-            data = response.json()
+            result = response.json()
             
-            # Extract image URL
-            # Standard OpenAI format: {'data': [{'url': '...'}]}
-            if 'data' in data and len(data['data']) > 0:
-                return data['data'][0]['url']
+            # Extract base64 image
+            # Response format: {'predictions': [{'bytesBase64Encoded': '...'}]}
+            if 'predictions' in result and len(result['predictions']) > 0:
+                b64_data = result['predictions'][0]['bytesBase64Encoded']
+                image_data = base64.b64decode(b64_data)
+                
+                # Save to file
+                filename = "generated_image.png"
+                file_path = os.path.abspath(filename)
+                with open(file_path, "wb") as f:
+                    f.write(image_data)
+                
+                return file_path
             else:
-                return f"Error: Unexpected response format from image provider. Response: {data}"
+                return f"Error: Unexpected response from Gemini. Response: {result}"
 
         except Exception as e:
             return f"Error generating image: {str(e)}"
@@ -84,7 +71,7 @@ class XPostTool(BaseTool):
             )
             api = tweepy.API(auth)
 
-            # Authenticate v2 for posting text
+            # Authenticate v2 for posting
             client = tweepy.Client(
                 consumer_key=consumer_key,
                 consumer_secret=consumer_secret,
@@ -93,20 +80,29 @@ class XPostTool(BaseTool):
             )
 
             media_id = None
+            temp_filename = "temp_upload_image.jpg"
+
             if image_url:
-                # Download image to temp file
-                img_data = requests.get(image_url).content
-                temp_filename = "temp_post_image.jpg"
-                with open(temp_filename, 'wb') as handler:
-                    handler.write(img_data)
-                
-                # Upload media using v1.1 API
-                media = api.media_upload(filename=temp_filename)
-                media_id = media.media_id
-                
-                # Clean up
-                if os.path.exists(temp_filename):
-                    os.remove(temp_filename)
+                # Check if it's a local file or URL
+                if os.path.exists(image_url):
+                    # It's a local file
+                    media = api.media_upload(filename=image_url)
+                    media_id = media.media_id
+                else:
+                    # Assume URL
+                    response = requests.get(image_url, stream=True)
+                    response.raise_for_status()
+                    with open(temp_filename, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    
+                    # Upload media using v1.1 API
+                    media = api.media_upload(filename=temp_filename)
+                    media_id = media.media_id
+                    
+                    # Clean up
+                    if os.path.exists(temp_filename):
+                        os.remove(temp_filename)
 
             # Post tweet using v2 API
             if media_id:
@@ -120,6 +116,6 @@ class XPostTool(BaseTool):
             return f"Error posting to X: {str(e)}"
 
 # Initialize tools
-search_tool = SerperDevTool()
+search_tool = BraveSearchTool()
 image_gen_tool = ImageGenTool()
 x_post_tool = XPostTool()

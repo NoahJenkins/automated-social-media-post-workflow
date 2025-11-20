@@ -7,17 +7,18 @@ from src.tools import search_tool, image_gen_tool, x_post_tool
 # We need to set OPENAI_API_BASE to OpenRouter's URL and OPENAI_API_KEY to OpenRouter Key
 # However, since we might want different models for different agents, we can instantiate them directly.
 
-# Helper to create OpenRouter LLM instance
-def create_openrouter_llm(model_name):
+# Helper to create Gemini LLM instance
+def create_gemini_llm(model_name):
     return LLM(
-        model=f"openrouter/{model_name}",
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1"
+        model=f"gemini/{model_name}",
+        api_key=os.getenv("GEMINI_API_KEY")
     )
 
 # Models
-grok_model = create_openrouter_llm("x-ai/grok-beta")
-gpt_mini_model = create_openrouter_llm("openai/gpt-4o-mini")
+# using gemini-1.5-pro for complex tasks (research, writing)
+research_model = create_gemini_llm("gemini-1.5-pro")
+# using gemini-1.5-flash for faster/simpler tasks (editing, image prompt, etc)
+fast_model = create_gemini_llm("gemini-1.5-flash")
 
 # Agents
 
@@ -30,7 +31,7 @@ researcher = Agent(
     verbose=True,
     allow_delegation=False,
     tools=[search_tool],
-    llm=grok_model
+    llm=research_model
 )
 
 writer = Agent(
@@ -42,7 +43,7 @@ writer = Agent(
     You always provide 3 distinct options for every topic.""",
     verbose=True,
     allow_delegation=False,
-    llm=grok_model
+    llm=research_model
 )
 
 editor = Agent(
@@ -53,18 +54,18 @@ editor = Agent(
     You are decisive and can pick the winner from a set of options.""",
     verbose=True,
     allow_delegation=False,
-    llm=gpt_mini_model
+    llm=fast_model
 )
 
 prompt_engineer = Agent(
     role='Visual Director',
     goal='Create a detailed image generation prompt based on the selected post text.',
     backstory="""You are a visual storytelling expert. 
-    You know how to translate text into vivid, descriptive prompts that AI image generators can understand. 
-    You focus on style, lighting, composition, and mood.""",
+    You know how to translate abstract concepts into concrete visual descriptions. 
+    You create prompts that generative AI models can understand perfectly.""",
     verbose=True,
     allow_delegation=False,
-    llm=gpt_mini_model
+    llm=fast_model
 )
 
 image_reviewer = Agent(
@@ -76,7 +77,7 @@ image_reviewer = Agent(
     verbose=True,
     allow_delegation=False,
     tools=[image_gen_tool], # This agent uses the image gen tool
-    llm=gpt_mini_model
+    llm=fast_model
 )
 
 poster = Agent(
@@ -88,5 +89,5 @@ poster = Agent(
     verbose=True,
     allow_delegation=False,
     tools=[x_post_tool],
-    llm=gpt_mini_model
+    llm=fast_model
 )

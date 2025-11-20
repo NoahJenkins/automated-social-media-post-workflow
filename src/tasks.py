@@ -35,15 +35,15 @@ def create_tasks(topic_interest):
 
     # Task 5: Generate and Review Image
     image_task = Task(
-        description="Use the 'Image Generation Tool' to generate an image based on the provided prompt. Then, review the generated image URL to ensure it exists. Return the image URL.",
-        expected_output="The URL of the generated and approved image.",
+        description="Use the 'Image Generation Tool' to generate an image based on the provided prompt. Return the local file path of the generated image.",
+        expected_output="The local file path of the generated and approved image.",
         agent=image_reviewer,
         context=[prompt_task]
     )
 
     # Task 6: Post to X
     posting_task = Task(
-        description="Post the selected text and the generated image to X (Twitter) using the 'X (Twitter) Posting Tool'. Use the text from the selection task and the image URL from the image task.",
+        description="Post the selected text and the generated image to X (Twitter) using the 'X (Twitter) Posting Tool'. Use the text from the selection task and the image file path from the image task.",
         expected_output="A confirmation message that the post was successfully published, including the Tweet ID.",
         agent=poster,
         context=[selection_task, image_task]
