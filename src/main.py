@@ -53,7 +53,7 @@ def main():
 
     # Run immediately for testing purposes (as requested for initial setup)
     # In a real persistent deployment, we might comment this out.
-    # run_social_media_workflow() 
+    run_social_media_workflow() 
 
     # Schedule: Mon, Wed, Fri at 10:00 AM
     schedule.every().monday.at("10:00").do(run_social_media_workflow)

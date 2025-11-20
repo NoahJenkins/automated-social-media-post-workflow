@@ -2,22 +2,23 @@ import os
 import requests
 import tweepy
 import base64
-from crewai_tools import BaseTool, BraveSearchTool
+from crewai.tools import BaseTool
+from crewai_tools import BraveSearchTool
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class ImageGenTool(BaseTool):
     name: str = "Image Generation Tool"
-    description: str = "Generates an image based on a text prompt using Gemini's Imagen 3 model. Returns the local file path of the generated image."
+    description: str = "Generates an image based on a text prompt using Gemini's Imagen 4 model. Returns the local file path of the generated image."
 
     def _run(self, prompt: str) -> str:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return "Error: GEMINI_API_KEY not found in environment variables."
 
-        # Using Gemini's Imagen 3 model
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
+        # Using Gemini's Imagen 4 model
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key={api_key}"
         headers = {
             "Content-Type": "application/json"
         }

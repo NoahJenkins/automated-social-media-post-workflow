@@ -15,10 +15,10 @@ def create_gemini_llm(model_name):
     )
 
 # Models
-# using gemini-1.5-pro for complex tasks (research, writing)
-research_model = create_gemini_llm("gemini-1.5-pro")
-# using gemini-1.5-flash for faster/simpler tasks (editing, image prompt, etc)
-fast_model = create_gemini_llm("gemini-1.5-flash")
+# using gemini-2.5-pro for complex tasks (research, writing)
+research_model = create_gemini_llm("gemini-2.5-pro")
+# using gemini-2.5-flash for faster/simpler tasks (editing, image prompt, etc)
+fast_model = create_gemini_llm("gemini-2.5-flash")
 
 # Agents
 
