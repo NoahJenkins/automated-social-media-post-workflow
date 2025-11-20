@@ -11,8 +11,8 @@ def create_tasks(topic_interest):
 
     # Task 2: Draft Content
     draft_task = Task(
-        description="Based on the research provided, choose the most engaging topic and write 3 distinct social media posts (tweets). Each post should include a hook, body, and relevant hashtags. Keep them under 280 characters.",
-        expected_output="Three clearly labeled options for a social media post (Option 1, Option 2, Option 3).",
+        description="Based on the research provided, choose the most engaging topic and write 3 distinct social media posts (tweets). The tone should be fun, engaging, and fit for a cartoon/comic style visual. Each post should include a hook, body, and relevant hashtags. Keep them under 280 characters.",
+        expected_output="Three clearly labeled options for a social media post (Option 1, Option 2, Option 3) written in a fun/comic style.",
         agent=writer,
         context=[research_task]
     )
@@ -27,8 +27,8 @@ def create_tasks(topic_interest):
 
     # Task 4: Create Image Prompt
     prompt_task = Task(
-        description="Create a detailed, creative image generation prompt that visually represents the selected social media post. The prompt should be descriptive and suitable for a high-quality AI image generator.",
-        expected_output="A single, detailed text prompt for image generation.",
+        description="Create a detailed, creative image generation prompt that visually represents the selected social media post. The prompt MUST specify a cartoon or comic book art style. Do NOT create photorealistic prompts. The prompt should be descriptive and suitable for a high-quality AI image generator.",
+        expected_output="A single, detailed text prompt for image generation specifying a cartoon/comic style.",
         agent=prompt_engineer,
         context=[selection_task]
     )
