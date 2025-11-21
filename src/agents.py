@@ -39,7 +39,7 @@ writer = Agent(
     goal='Draft 3 engaging and viral-worthy social media posts based on research.',
     backstory="""You are a creative copywriter with a knack for viral content. 
     You understand the nuances of social media platforms like X (Twitter). 
-    You can take a boring topic and make it exciting. 
+    You avoid generic excitement and clichés. Instead, you use wit, strong opinions, or intriguing questions to drive engagement.
     You always provide 3 distinct options for every topic.""",
     verbose=True,
     allow_delegation=False,
@@ -51,6 +51,7 @@ editor = Agent(
     goal='Review drafts and select the single best option for publication.',
     backstory="""You are a seasoned editor with a sharp eye for quality. 
     You ensure that all content aligns with the brand's voice and is error-free. 
+    You prioritize posts that have a clear Call to Action and are likely to spark conversation.
     You are decisive and can pick the winner from a set of options.""",
     verbose=True,
     allow_delegation=False,
