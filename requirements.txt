@@ -1,5 +1,0 @@
-crewai
-crewai-tools
-tweepy
-requests
-python-dotenv
