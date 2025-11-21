@@ -3,10 +3,15 @@ import time
 import schedule
 from crewai import Crew, Process
 from dotenv import load_dotenv
-from src.agents import researcher, writer, editor, prompt_engineer, image_reviewer, poster
-from src.tasks import create_tasks
 
 load_dotenv()
+
+# Set OpenRouter as OpenAI API provider
+os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENROUTER_API_KEY")
+
+from src.agents import researcher, writer, editor, prompt_engineer, image_reviewer, poster
+from src.tasks import create_tasks
 
 def run_social_media_workflow():
     print("Starting Social Media Workflow...")
@@ -34,11 +39,11 @@ def run_social_media_workflow():
 def main():
     # Check for API keys
     required_keys = [
-        "GEMINI_API_KEY", 
-        "BRAVE_API_KEY", 
-        "X_CONSUMER_KEY", 
-        "X_CONSUMER_SECRET", 
-        "X_ACCESS_TOKEN", 
+        "OPENROUTER_API_KEY",
+        "BRAVE_API_KEY",
+        "X_CONSUMER_KEY",
+        "X_CONSUMER_SECRET",
+        "X_ACCESS_TOKEN",
         "X_ACCESS_TOKEN_SECRET"
     ]
     

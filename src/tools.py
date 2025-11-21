@@ -10,44 +10,51 @@ load_dotenv()
 
 class ImageGenTool(BaseTool):
     name: str = "Image Generation Tool"
-    description: str = "Generates an image based on a text prompt using Gemini's Imagen 4 model. Returns the local file path of the generated image."
+    description: str = "Generates an image based on a text prompt using OpenRouter's openai/gpt-5-image-mini model. Returns the local file path of the generated image."
 
     def _run(self, prompt: str) -> str:
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
-            return "Error: GEMINI_API_KEY not found in environment variables."
+            return "Error: OPENROUTER_API_KEY not found in environment variables."
 
-        # Using Gemini's Imagen 4 model
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key={api_key}"
+        # Using OpenRouter's image generation API
+        url = "https://openrouter.ai/api/v1/images/generations"
         headers = {
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
-            "instances": [{"prompt": prompt}],
-            "parameters": {"sampleCount": 1}
+            "model": "openai/gpt-5-image-mini",
+            "prompt": prompt,
+            "n": 1,
+            "size": "1024x1024"
         }
 
         try:
             response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
             result = response.json()
-            
-            # Extract base64 image
-            # Response format: {'predictions': [{'bytesBase64Encoded': '...'}]}
-            if 'predictions' in result and len(result['predictions']) > 0:
-                b64_data = result['predictions'][0]['bytesBase64Encoded']
-                image_data = base64.b64decode(b64_data)
-                
+
+            # Extract image URL
+            # Response format: {'data': [{'url': '...'}]}
+            if 'data' in result and len(result['data']) > 0:
+                image_url = result['data'][0]['url']
+
+                # Download the image
+                image_response = requests.get(image_url)
+                image_response.raise_for_status()
+                image_data = image_response.content
+
                 # Save to file
                 filename = "generated_image.png"
                 file_path = os.path.abspath(filename)
                 with open(file_path, "wb") as f:
                     f.write(image_data)
-                
+
                 return file_path
             else:
-                return f"Error: Unexpected response from Gemini. Response: {result}"
+                return f"Error: Unexpected response from OpenRouter. Response: {result}"
 
         except Exception as e:
             return f"Error generating image: {str(e)}"
