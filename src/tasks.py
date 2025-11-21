@@ -1,7 +1,7 @@
 from crewai import Task
 from src.agents import researcher, writer, editor, prompt_engineer, image_reviewer, poster
 
-def create_tasks(topic_interest):
+def create_tasks(topic_interest, require_approval=False):
     # Task 1: Research
     research_task = Task(
         description=f"Research trending topics related to '{topic_interest}'. Find at least 3 specific, currently trending news items or discussions.",
@@ -46,7 +46,8 @@ def create_tasks(topic_interest):
         description="Post the selected text and the generated image to X (Twitter) using the 'X (Twitter) Posting Tool'. Use the text from the selection task and the image file path from the image task.",
         expected_output="A confirmation message that the post was successfully published, including the Tweet ID.",
         agent=poster,
-        context=[selection_task, image_task]
+        context=[selection_task, image_task],
+        human_input=require_approval
     )
 
     return [research_task, draft_task, selection_task, prompt_task, image_task, posting_task]

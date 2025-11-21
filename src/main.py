@@ -13,9 +13,10 @@ def run_social_media_workflow():
     
     # Define the topic of interest (could be dynamic or config-based)
     topic_interest = "AI and Technology News"
+    require_approval = os.getenv("REQUIRE_APPROVAL", "False").lower() == "true"
     
     # Create tasks
-    tasks = create_tasks(topic_interest)
+    tasks = create_tasks(topic_interest, require_approval=require_approval)
     
     # Create Crew
     social_media_crew = Crew(
