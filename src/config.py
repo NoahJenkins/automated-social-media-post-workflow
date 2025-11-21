@@ -23,7 +23,7 @@ def get_llm(model_name="gpt-4o"):
     if OPENROUTER_API_KEY:
         # OpenRouter Configuration
         return ChatOpenAI(
-            model=f"openai/{model_name}", # OpenRouter often requires 'provider/model' or just 'model' depending on mapping. 'openai/gpt-4o' is safe.
+            model=model_name,  # Removed provider prefix to match LangSmith model registry
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=0.7
@@ -35,7 +35,7 @@ def get_vision_llm():
     """Returns a ChatOpenAI instance for vision tasks."""
     if OPENROUTER_API_KEY:
         return ChatOpenAI(
-            model="openai/gpt-4o",
+            model="gpt-4o",  # Removed provider prefix to match LangSmith model registry
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             max_tokens=1000
