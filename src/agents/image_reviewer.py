@@ -27,4 +27,7 @@ def image_reviewer_node(state: AgentState):
     
     is_approved = "YES" in content.upper()
     
+    print(f"Image Approved: {is_approved}")
+    print(f"Critique: {content}")
+    
     return {"image_approved": is_approved, "critique": content}

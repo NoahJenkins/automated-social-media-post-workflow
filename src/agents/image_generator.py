@@ -32,7 +32,15 @@ def image_generator_node(state: AgentState):
             quality="medium"
         )
         
-        image_url = response.data[0].url
+        print(f"Full Response: {response}")
+        
+        image_url = None
+        if hasattr(response.data[0], 'url') and response.data[0].url:
+            image_url = response.data[0].url
+        elif hasattr(response.data[0], 'b64_json') and response.data[0].b64_json:
+            image_url = f"data:image/png;base64,{response.data[0].b64_json}"
+            
+        print(f"Generated Image URL (or data URI): {image_url[:50]}..." if image_url else "Generated Image URL: None")
         return {"image_url": image_url}
         
     except Exception as e:

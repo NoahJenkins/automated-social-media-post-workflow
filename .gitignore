@@ -1,3 +1,6 @@
 .env
 __pycache__
 *.png
+social_media_posts/
+debug_log.txt
+architecture_plan.md

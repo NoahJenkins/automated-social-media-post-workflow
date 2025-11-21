@@ -11,6 +11,9 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
+# Feature Flags
+ENABLE_POSTING = os.getenv("ENABLE_POSTING", "False").lower() == "true"
+
 if not OPENAI_API_KEY and not OPENROUTER_API_KEY:
     raise ValueError("Neither OPENAI_API_KEY (or OPENAI_KEY) nor OPENROUTER_API_KEY is set in .env")
 

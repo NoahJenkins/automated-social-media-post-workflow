@@ -5,3 +5,4 @@ langchain-community
 tavily-python
 tweepy
 python-dotenv
+requests
