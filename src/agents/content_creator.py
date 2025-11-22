@@ -9,6 +9,8 @@ def content_creator_node(state: AgentState):
     print("--- CONTENT CREATOR AGENT ---")
     topic = state["topic"]
     research = state["research_results"]
+    day = state.get("day_of_week", "a weekday")
+    theme = state.get("theme", "tech life")
     
     llm = get_llm("gpt-4o")
     
@@ -17,6 +19,7 @@ def content_creator_node(state: AgentState):
     Context: {research}
     
     Task: Write 3 distinct social media posts (tweets) about this topic.
+    Context: Today is {day}. The theme is {theme}. Make the posts reflect this vibe (e.g., if Friday, make it about the weekend/wrapping up).
     Tone: Casual, Fun, Engaging, Relatable for Tech Workers.
     Constraints:
     - Under 280 characters.

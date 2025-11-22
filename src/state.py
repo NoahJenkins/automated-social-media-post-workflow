@@ -14,3 +14,5 @@ class AgentState(TypedDict):
     critique: Optional[str]
     post_status: Optional[str]
     retry_count: int
+    day_of_week: Optional[str]
+    theme: Optional[str]

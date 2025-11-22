@@ -1,5 +1,6 @@
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import BraveSearch
+import datetime
 from src.state import AgentState
 from src.config import get_llm, TAVILY_API_KEY, BRAVE_API_KEY
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -10,8 +11,24 @@ def researcher_node(state: AgentState):
     """
     print("--- RESEARCHER AGENT ---")
     
-    # 1. Search for trends
-    query = "trending topics in tech industry work culture remote work ai"
+    # 1. Determine Day & Theme
+    today = datetime.datetime.now().strftime("%A")
+    
+    daily_themes = {
+        "Monday": "Motivation, Goals, Planning, Future Tech",
+        "Tuesday": "Tools, Tips, Tutorials, How-to",
+        "Wednesday": "Mid-week insights, AI trends, Deep dives",
+        "Thursday": "Throwback, History of Tech, Coding challenges",
+        "Friday": "Fun, Weekend vibes, wrapping up, humor",
+        "Saturday": "Side projects, Learning, Relaxed coding",
+        "Sunday": "Reflection, Preparation for the week, Career advice"
+    }
+    
+    theme = daily_themes.get(today, "General Tech Trends")
+    print(f"Today is {today}. Theme: {theme}")
+
+    # 2. Search for trends with theme
+    query = f"trending topics in tech industry {theme}"
     results = []
     
     try:
@@ -38,10 +55,10 @@ def researcher_node(state: AgentState):
     # 2. Summarize and pick a topic (Optional: could just pass raw results, but let's pick one)
     llm = get_llm("gpt-4o-mini")
     messages = [
-        SystemMessage(content="You are a trend researcher. Analyze the search results and pick the ONE most engaging trending topic for a fun social media post about tech/work culture."),
+        SystemMessage(content=f"You are a trend researcher. Today is {today} and the theme is '{theme}'. Analyze the search results and pick the ONE most engaging trending topic for a fun social media post about tech/work culture that fits this theme."),
         HumanMessage(content=f"Search Results:\n{context}")
     ]
     response = llm.invoke(messages)
     topic = response.content
     
-    return {"topic": topic, "research_results": context}
+    return {"topic": topic, "research_results": context, "day_of_week": today, "theme": theme}
