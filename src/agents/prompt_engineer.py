@@ -9,7 +9,7 @@ def prompt_engineer_node(state: AgentState):
     print("--- PROMPT ENGINEER AGENT ---")
     selected_post = state["selected_post"]
     
-    llm = get_llm("gpt-4o-mini")
+    llm = get_llm("gpt-5-mini")
     
     prompt = f"""
     Based on this social media post: "{selected_post}"

@@ -9,7 +9,7 @@ def content_reviewer_node(state: AgentState):
     print("--- CONTENT REVIEWER AGENT ---")
     drafts = state["draft_posts"]
     
-    llm = get_llm("gpt-4o")
+    llm = get_llm("gpt-5")
     
     prompt = f"""
     Review the following 3 social media post drafts:

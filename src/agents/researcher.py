@@ -53,7 +53,7 @@ def researcher_node(state: AgentState):
         context = "Could not fetch live trends. Using fallback topics: AI Agents, Remote Work Life, Developer Burnout."
 
     # 2. Summarize and pick a topic (Optional: could just pass raw results, but let's pick one)
-    llm = get_llm("gpt-4o-mini")
+    llm = get_llm("gpt-5-mini")
     messages = [
         SystemMessage(content=f"You are a trend researcher. Today is {today} and the theme is '{theme}'. Analyze the search results and pick the ONE most engaging trending topic for a fun social media post about tech/work culture that fits this theme."),
         HumanMessage(content=f"Search Results:\n{context}")

@@ -2,7 +2,7 @@ langchain
 langgraph
 langchain-openai
 langchain-community
+langchain-google-genai
 tavily-python
-tweepy
 python-dotenv
 requests

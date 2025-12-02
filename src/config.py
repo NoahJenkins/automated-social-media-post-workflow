@@ -11,6 +11,11 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
+# Metricool Configuration
+METRICOOL_API_TOKEN = os.getenv("METRICOOL_API")
+METRICOOL_USER_ID = os.getenv("METRICOOL_USER_ID")
+METRICOOL_BLOG_ID = os.getenv("METRICOOL_BLOG_ID")
+
 # Feature Flags
 ENABLE_POSTING = os.getenv("ENABLE_POSTING", "False").lower() == "true"
 
@@ -18,12 +23,12 @@ if not OPENAI_API_KEY and not OPENROUTER_API_KEY:
     raise ValueError("Neither OPENAI_API_KEY (or OPENAI_KEY) nor OPENROUTER_API_KEY is set in .env")
 
 # Initialize Models
-def get_llm(model_name="gpt-4o"):
+def get_llm(model_name="gpt-5-mini"):
     """Returns a ChatOpenAI instance for the specified model."""
     if OPENROUTER_API_KEY:
         # OpenRouter Configuration
         return ChatOpenAI(
-            model=model_name,  # Removed provider prefix to match LangSmith model registry
+            model=model_name,
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=0.7
@@ -35,10 +40,10 @@ def get_vision_llm():
     """Returns a ChatOpenAI instance for vision tasks."""
     if OPENROUTER_API_KEY:
         return ChatOpenAI(
-            model="gpt-4o",  # Removed provider prefix to match LangSmith model registry
+            model="gpt-5",
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             max_tokens=1000
         )
     else:
-        return ChatOpenAI(model="gpt-4o", max_tokens=1000)
+        return ChatOpenAI(model="gpt-5", max_tokens=1000)

@@ -12,7 +12,7 @@ def content_creator_node(state: AgentState):
     day = state.get("day_of_week", "a weekday")
     theme = state.get("theme", "tech life")
     
-    llm = get_llm("gpt-4o")
+    llm = get_llm("gpt-5")
     
     prompt = f"""
     Topic: {topic}
