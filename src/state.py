@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Optional
+from typing import TypedDict, List, Optional, Dict, Any
 
 class AgentState(TypedDict):
     """
@@ -16,3 +16,5 @@ class AgentState(TypedDict):
     retry_count: int
     day_of_week: Optional[str]
     theme: Optional[str]
+    # Evaluation results from online evaluators
+    evaluation_results: Optional[Dict[str, Any]]

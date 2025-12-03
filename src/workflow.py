@@ -7,8 +7,8 @@ from src.agents.prompt_engineer import prompt_engineer_node
 from src.agents.image_generator import image_generator_node
 from src.agents.image_reviewer import image_reviewer_node
 from src.agents.poster import poster_node
-
 from src.agents.saver import saver_node
+from src.evaluators.feedback import evaluate_content_node
 from src.config import ENABLE_POSTING
 
 def build_graph():
@@ -21,6 +21,7 @@ def build_graph():
     workflow.add_node("researcher", researcher_node)
     workflow.add_node("content_creator", content_creator_node)
     workflow.add_node("content_reviewer", content_reviewer_node)
+    workflow.add_node("evaluate_content", evaluate_content_node)  # Online evaluators
     workflow.add_node("prompt_engineer", prompt_engineer_node)
     workflow.add_node("image_generator", image_generator_node)
     workflow.add_node("image_reviewer", image_reviewer_node)
@@ -31,7 +32,8 @@ def build_graph():
     workflow.set_entry_point("researcher")
     workflow.add_edge("researcher", "content_creator")
     workflow.add_edge("content_creator", "content_reviewer")
-    workflow.add_edge("content_reviewer", "prompt_engineer")
+    workflow.add_edge("content_reviewer", "evaluate_content")  # Run online evaluators after review
+    workflow.add_edge("evaluate_content", "prompt_engineer")  # Continue workflow (non-blocking)
     workflow.add_edge("prompt_engineer", "image_generator")
     workflow.add_edge("image_generator", "image_reviewer")
 

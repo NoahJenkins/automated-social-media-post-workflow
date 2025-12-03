@@ -3,6 +3,7 @@ langgraph
 langchain-openai
 langchain-community
 langchain-google-genai
+langsmith>=0.2.0
 tavily-python
 python-dotenv
 requests
