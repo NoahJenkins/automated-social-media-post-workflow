@@ -9,7 +9,8 @@ def content_reviewer_node(state: AgentState):
     print("--- CONTENT REVIEWER AGENT ---")
     drafts = state["draft_posts"]
     
-    llm = get_llm("gpt-5")
+    # Using mini model - selection is a simple classification task
+    llm = get_llm("gpt-5-mini")
     
     prompt = f"""
     Review the following 3 social media post drafts:

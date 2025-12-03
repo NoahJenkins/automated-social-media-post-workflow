@@ -4,3 +4,6 @@ __pycache__
 social_media_posts/
 debug_log.txt
 architecture_plan.md
+
+# LangChain LLM cache
+.langchain_cache.db

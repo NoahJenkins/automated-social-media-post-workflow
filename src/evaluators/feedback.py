@@ -7,6 +7,7 @@ then submits feedback scores to LangSmith.
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -316,14 +317,29 @@ def run_evaluations(
     logger.info("RUNNING ONLINE EVALUATIONS")
     logger.info("=" * 50)
     
-    # Run all evaluations
-    hallucination_result = evaluate_hallucination(selected_post, research_results, llm)
+    # Run all evaluations in parallel (~3x speed improvement)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(evaluate_hallucination, selected_post, research_results, llm): "hallucination",
+            executor.submit(evaluate_relevance, selected_post, topic, theme, llm): "relevance",
+            executor.submit(evaluate_conciseness, selected_post, llm): "conciseness"
+        }
+        
+        eval_results = {}
+        for future in as_completed(futures):
+            eval_name = futures[future]
+            try:
+                eval_results[eval_name] = future.result()
+            except Exception as e:
+                logger.error(f"Evaluation {eval_name} failed: {e}")
+                eval_results[eval_name] = {"score": 0.0, "passed": False, "reasoning": f"Error: {e}"}
+    
+    hallucination_result = eval_results["hallucination"]
+    relevance_result = eval_results["relevance"]
+    conciseness_result = eval_results["conciseness"]
+    
     logger.info(f"Hallucination/Groundedness: {hallucination_result['score']:.2f} - {'PASS' if hallucination_result['passed'] else 'FAIL'}")
-    
-    relevance_result = evaluate_relevance(selected_post, topic, theme, llm)
     logger.info(f"Relevance: {relevance_result['score']:.2f} - {'PASS' if relevance_result['passed'] else 'FAIL'}")
-    
-    conciseness_result = evaluate_conciseness(selected_post, llm)
     logger.info(f"Conciseness: {conciseness_result['score']:.2f} - {'PASS' if conciseness_result['passed'] else 'FAIL'}")
     
     results = {

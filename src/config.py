@@ -1,9 +1,14 @@
 import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_core.globals import set_llm_cache
+from langchain_community.cache import SQLiteCache
 
 # Load environment variables
 load_dotenv()
+
+# Initialize LLM cache for repeated prompts (reduces costs on retries/similar themes)
+set_llm_cache(SQLiteCache(database_path=".langchain_cache.db"))
 
 # Validate API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY")
@@ -43,7 +48,8 @@ def get_vision_llm():
             model="gpt-5",
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
-            max_tokens=1000
+            max_tokens=1000,
+            temperature=0  # Deterministic for consistent image reviews
         )
     else:
-        return ChatOpenAI(model="gpt-5", max_tokens=1000)
+        return ChatOpenAI(model="gpt-5", max_tokens=1000, temperature=0)
