@@ -9,24 +9,38 @@ from src.agents.image_reviewer import image_reviewer_node
 from src.agents.poster import poster_node
 from src.agents.saver import saver_node
 from src.evaluators.feedback import evaluate_content_node
+from src.utils.metrics import wrap_node_with_latency
 from src.config import ENABLE_POSTING
+
+
+# Wrap all nodes with latency tracking for observability
+tracked_researcher = wrap_node_with_latency(researcher_node, "researcher")
+tracked_content_creator = wrap_node_with_latency(content_creator_node, "content_creator")
+tracked_content_reviewer = wrap_node_with_latency(content_reviewer_node, "content_reviewer")
+tracked_evaluate_content = wrap_node_with_latency(evaluate_content_node, "evaluate_content")
+tracked_prompt_engineer = wrap_node_with_latency(prompt_engineer_node, "prompt_engineer")
+tracked_image_generator = wrap_node_with_latency(image_generator_node, "image_generator")
+tracked_image_reviewer = wrap_node_with_latency(image_reviewer_node, "image_reviewer")
+tracked_poster = wrap_node_with_latency(poster_node, "poster")
+tracked_saver = wrap_node_with_latency(saver_node, "saver")
+
 
 def build_graph():
     """
-    Constructs the LangGraph workflow.
+    Constructs the LangGraph workflow with latency-tracked nodes.
     """
     workflow = StateGraph(AgentState)
 
-    # Add Nodes
-    workflow.add_node("researcher", researcher_node)
-    workflow.add_node("content_creator", content_creator_node)
-    workflow.add_node("content_reviewer", content_reviewer_node)
-    workflow.add_node("evaluate_content", evaluate_content_node)  # Online evaluators
-    workflow.add_node("prompt_engineer", prompt_engineer_node)
-    workflow.add_node("image_generator", image_generator_node)
-    workflow.add_node("image_reviewer", image_reviewer_node)
-    workflow.add_node("poster", poster_node)
-    workflow.add_node("saver", saver_node)
+    # Add Nodes (with latency tracking)
+    workflow.add_node("researcher", tracked_researcher)
+    workflow.add_node("content_creator", tracked_content_creator)
+    workflow.add_node("content_reviewer", tracked_content_reviewer)
+    workflow.add_node("evaluate_content", tracked_evaluate_content)  # Online evaluators
+    workflow.add_node("prompt_engineer", tracked_prompt_engineer)
+    workflow.add_node("image_generator", tracked_image_generator)
+    workflow.add_node("image_reviewer", tracked_image_reviewer)
+    workflow.add_node("poster", tracked_poster)
+    workflow.add_node("saver", tracked_saver)
 
     # Define Edges
     workflow.set_entry_point("researcher")

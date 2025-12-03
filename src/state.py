@@ -18,3 +18,17 @@ class AgentState(TypedDict):
     theme: Optional[str]
     # Evaluation results from online evaluators
     evaluation_results: Optional[Dict[str, Any]]
+    
+    # --- Metrics tracking (LangSmith best practices) ---
+    # Per-node latency tracking (node_name -> seconds)
+    node_latencies: Optional[Dict[str, float]]
+    # Total workflow execution time in seconds
+    total_latency: Optional[float]
+    # Character count of the selected post
+    post_char_count: Optional[int]
+    # Image generation attempts (for retry rate tracking)
+    image_generation_attempts: Optional[int]
+    # Workflow start timestamp (ISO format)
+    workflow_start_time: Optional[str]
+    # Error messages collected during workflow
+    errors: Optional[List[str]]

@@ -6,6 +6,8 @@ then submits feedback scores to LangSmith.
 
 import logging
 import os
+import time
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from langchain_openai import ChatOpenAI
@@ -381,4 +383,324 @@ def evaluate_content_node(state: Dict[str, Any]) -> Dict[str, Any]:
         theme=theme
     )
     
-    return {"evaluation_results": evaluation_results}
+    # Add character count to state for metrics tracking
+    char_count = len(selected_post) if selected_post else 0
+    
+    return {
+        "evaluation_results": evaluation_results,
+        "post_char_count": char_count
+    }
+
+
+# =============================================================================
+# COMPOSITE EVALUATOR (LangSmith Best Practice)
+# =============================================================================
+
+def calculate_composite_score(
+    evaluation_results: Dict[str, Any],
+    weights: Optional[Dict[str, float]] = None
+) -> Dict[str, Any]:
+    """
+    Calculate a weighted composite score from individual evaluations.
+    
+    This follows LangSmith best practices for aggregating multiple metrics
+    into a single quality score for easier comparison across runs.
+    
+    Args:
+        evaluation_results: Dict containing hallucination, relevance, conciseness scores
+        weights: Optional custom weights. Defaults to balanced weighting.
+    
+    Returns:
+        Dict with composite_score, breakdown, and overall assessment
+    """
+    default_weights = {
+        "groundedness": 0.4,  # Most important - factual accuracy
+        "relevance": 0.35,   # Topic alignment
+        "conciseness": 0.25  # Format appropriateness
+    }
+    weights = weights or default_weights
+    
+    # Map evaluation keys to weight keys
+    score_mapping = {
+        "hallucination": "groundedness",
+        "relevance": "relevance", 
+        "conciseness": "conciseness"
+    }
+    
+    total_score = 0.0
+    breakdown = {}
+    total_weight = 0.0
+    
+    for eval_key, weight_key in score_mapping.items():
+        if eval_key in evaluation_results:
+            score = evaluation_results[eval_key].get("score", 0)
+            weight = weights.get(weight_key, 0)
+            weighted_score = score * weight
+            total_score += weighted_score
+            total_weight += weight
+            breakdown[weight_key] = {
+                "raw_score": score,
+                "weight": weight,
+                "weighted_score": weighted_score
+            }
+    
+    # Normalize if weights don't sum to 1
+    if total_weight > 0:
+        composite = total_score / total_weight
+    else:
+        composite = 0.0
+    
+    return {
+        "composite_score": round(composite, 3),
+        "breakdown": breakdown,
+        "passed": composite >= 0.7,
+        "quality_tier": (
+            "excellent" if composite >= 0.9 else
+            "good" if composite >= 0.75 else
+            "acceptable" if composite >= 0.6 else
+            "needs_improvement"
+        )
+    }
+
+
+def submit_composite_feedback(
+    evaluation_results: Dict[str, Any],
+    run_id: Optional[str] = None
+) -> None:
+    """
+    Calculate and submit composite score as additional LangSmith feedback.
+    
+    Args:
+        evaluation_results: Dict containing individual evaluation scores
+        run_id: Optional run_id for LangSmith feedback
+    """
+    try:
+        composite = calculate_composite_score(evaluation_results)
+        
+        client = Client()
+        
+        if run_id is None:
+            try:
+                run_tree = get_current_run_tree()
+                if run_tree:
+                    run_id = str(run_tree.id)
+            except Exception:
+                pass
+        
+        if run_id:
+            client.create_feedback(
+                run_id=run_id,
+                key="composite_quality",
+                score=composite["composite_score"],
+                comment=f"Quality tier: {composite['quality_tier']}"
+            )
+            logger.info(f"Submitted composite quality feedback: {composite['composite_score']} ({composite['quality_tier']})")
+        
+    except Exception as e:
+        logger.error(f"Failed to submit composite feedback: {e}")
+
+
+# =============================================================================
+# CHARACTER COUNT COMPLIANCE EVALUATOR
+# =============================================================================
+
+def evaluate_character_compliance(selected_post: str) -> Dict[str, Any]:
+    """
+    Evaluate character count compliance for social media platforms.
+    
+    Platform limits:
+    - Twitter/X: 280 characters (standard), 25,000 (premium)
+    - LinkedIn: 3,000 characters
+    - Instagram caption: 2,200 characters
+    
+    Returns:
+        Dict with compliance scores per platform
+    """
+    char_count = len(selected_post)
+    
+    platforms = {
+        "twitter_standard": {"limit": 280, "compliant": char_count <= 280},
+        "twitter_premium": {"limit": 25000, "compliant": char_count <= 25000},
+        "linkedin": {"limit": 3000, "compliant": char_count <= 3000},
+        "instagram": {"limit": 2200, "compliant": char_count <= 2200}
+    }
+    
+    # Score is 1.0 if under limit, scales down as you exceed
+    twitter_score = min(1.0, 280 / max(char_count, 1)) if char_count > 280 else 1.0
+    
+    return {
+        "char_count": char_count,
+        "platforms": platforms,
+        "twitter_compliance_score": round(twitter_score, 3),
+        "is_twitter_ready": char_count <= 280
+    }
+
+
+# =============================================================================
+# IMAGE RETRY RATE TRACKING
+# =============================================================================
+
+def calculate_image_retry_metrics(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calculate image generation retry metrics for quality monitoring.
+    
+    Tracks:
+    - retry_count: Number of image regeneration attempts
+    - first_attempt_success: Whether first image was approved
+    - retry_rate: retry_count / total_attempts
+    
+    Args:
+        state: AgentState with retry_count and image_approved
+    
+    Returns:
+        Dict with retry metrics
+    """
+    retry_count = state.get("retry_count", 0)
+    image_approved = state.get("image_approved", False)
+    
+    # Total attempts = retry_count + 1 (initial attempt)
+    total_attempts = retry_count + 1
+    
+    return {
+        "retry_count": retry_count,
+        "total_attempts": total_attempts,
+        "first_attempt_success": retry_count == 0 and image_approved,
+        "final_approved": image_approved,
+        "retry_rate": round(retry_count / total_attempts, 3) if total_attempts > 0 else 0,
+        "hit_max_retries": retry_count >= 2
+    }
+
+
+def submit_image_metrics_feedback(
+    state: Dict[str, Any],
+    run_id: Optional[str] = None
+) -> None:
+    """
+    Submit image generation metrics as LangSmith feedback.
+    
+    Args:
+        state: AgentState with retry_count and image_approved
+        run_id: Optional run_id for LangSmith feedback
+    """
+    try:
+        metrics = calculate_image_retry_metrics(state)
+        
+        client = Client()
+        
+        if run_id is None:
+            try:
+                run_tree = get_current_run_tree()
+                if run_tree:
+                    run_id = str(run_tree.id)
+            except Exception:
+                pass
+        
+        if run_id:
+            # Submit image approval as binary score
+            client.create_feedback(
+                run_id=run_id,
+                key="image_approved",
+                score=1.0 if metrics["final_approved"] else 0.0,
+                comment=f"Attempts: {metrics['total_attempts']}, Retries: {metrics['retry_count']}"
+            )
+            
+            # Submit first-attempt success rate
+            client.create_feedback(
+                run_id=run_id,
+                key="image_first_attempt_success",
+                score=1.0 if metrics["first_attempt_success"] else 0.0
+            )
+            
+            logger.info(f"Submitted image metrics: approved={metrics['final_approved']}, attempts={metrics['total_attempts']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to submit image metrics feedback: {e}")
+
+
+# =============================================================================
+# SUMMARY EVALUATOR (Experiment-Level Metrics)
+# =============================================================================
+
+def fetch_experiment_summary_metrics(experiment_name: str) -> Dict[str, Any]:
+    """
+    Fetch experiment-level summary metrics from LangSmith.
+    
+    This retrieves the project stats which include:
+    - latency_p50, latency_p99: Latency percentiles
+    - total_tokens, prompt_tokens, completion_tokens: Token usage
+    - total_cost: Estimated cost
+    - error_rate: Percentage of failed runs
+    - feedback_stats: Aggregated feedback scores
+    
+    Args:
+        experiment_name: The LangSmith project/experiment name
+    
+    Returns:
+        Dict with summary metrics or empty dict if unavailable
+    """
+    try:
+        client = Client()
+        project = client.read_project(project_name=experiment_name, include_stats=True)
+        
+        return {
+            "experiment_name": experiment_name,
+            "latency_p50": getattr(project, "latency_p50", None),
+            "latency_p99": getattr(project, "latency_p99", None),
+            "total_tokens": getattr(project, "total_tokens", None),
+            "prompt_tokens": getattr(project, "prompt_tokens", None),
+            "completion_tokens": getattr(project, "completion_tokens", None),
+            "total_cost": getattr(project, "total_cost", None),
+            "error_rate": getattr(project, "error_rate", None),
+            "feedback_stats": getattr(project, "feedback_stats", {}),
+            "run_count": getattr(project, "run_count", None)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch experiment summary: {e}")
+        return {}
+
+
+def log_workflow_summary(state: Dict[str, Any]) -> None:
+    """
+    Log a summary of workflow metrics at completion.
+    
+    Args:
+        state: Final AgentState with all metrics
+    """
+    logger.info("=" * 60)
+    logger.info("WORKFLOW METRICS SUMMARY")
+    logger.info("=" * 60)
+    
+    # Post metrics
+    if state.get("post_char_count"):
+        logger.info(f"Post character count: {state['post_char_count']}")
+        logger.info(f"Twitter ready: {'Yes' if state['post_char_count'] <= 280 else 'No'}")
+    
+    # Image metrics
+    image_metrics = calculate_image_retry_metrics(state)
+    logger.info(f"Image attempts: {image_metrics['total_attempts']}")
+    logger.info(f"Image approved: {image_metrics['final_approved']}")
+    logger.info(f"First attempt success: {image_metrics['first_attempt_success']}")
+    
+    # Evaluation summary
+    eval_results = state.get("evaluation_results", {})
+    if eval_results:
+        composite = calculate_composite_score(eval_results)
+        logger.info(f"Composite quality: {composite['composite_score']} ({composite['quality_tier']})")
+    
+    # Latency
+    if state.get("total_latency"):
+        logger.info(f"Total latency: {state['total_latency']:.2f}s")
+    
+    if state.get("node_latencies"):
+        logger.info("Node latencies:")
+        for node, latency in state["node_latencies"].items():
+            logger.info(f"  {node}: {latency:.2f}s")
+    
+    # Errors
+    if state.get("errors"):
+        logger.warning(f"Errors encountered: {len(state['errors'])}")
+        for err in state["errors"]:
+            logger.warning(f"  - {err}")
+    
+    logger.info("=" * 60)
