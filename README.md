@@ -1,28 +1,30 @@
 # Automated Social Media Post Workflow
 
-An autonomous agentic workflow that researches trending tech topics, generates engaging social media content (text + images), reviews it for quality, and posts it to X (Twitter). Built with **LangChain**, **LangGraph**, and **OpenAI**.
+An autonomous agentic workflow that researches trending tech topics, generates engaging social media content (text + images), reviews it for quality, and posts via Metricool (Twitter/X supported). Built with LangChain, LangGraph, and OpenAI/OpenRouter.
 
 ## Overview
 
 This project automates the entire social media content pipeline:
 
-1.  **Research**: Finds real-time trending topics in tech and work culture using Tavily or Brave Search.
-2.  **Drafting**: Creates multiple fun, casual tweet options using GPT-4o.
-3.  **Review**: An AI editor selects the best draft based on engagement criteria.
-4.  **Visuals**: Generates an accompanying image using DALL-E 3 (via OpenAI or OpenRouter).
-5.  **Quality Control**: A vision-enabled agent (GPT-4o Vision) reviews the image for safety and relevance.
-6.  **Publishing**: Posts the final content to X (Twitter) or saves it locally if posting is disabled.
+1.  Research: Finds real-time trending topics in tech and work culture using Tavily or Brave Search.
+2.  Drafting: Creates multiple fun, casual tweet options using `gpt-5`.
+3.  Review: An AI editor selects the best draft based on engagement criteria.
+4.  Online Evaluators: Non-blocking quality checks (groundedness, relevance, conciseness) with feedback to LangSmith.
+5.  Visuals: Generates an accompanying image using `gpt-image-1-mini` (OpenAI or OpenRouter).
+6.  Quality Control: A vision-enabled agent reviews the image for safety and relevance; up to 2 retries.
+7.  Publishing: Posts via Metricool (Twitter/X) or saves locally if posting is disabled.
 
 ## Architecture
 
-The system is orchestrated as a stateful graph using **LangGraph**:
+The system is orchestrated as a stateful graph using LangGraph:
 
 ```mermaid
 graph TD
     Start --> Researcher
     Researcher[Trend Researcher] -->|Trending Topics| Creator
     Creator[Content Creator] -->|3 Drafts| Reviewer
-    Reviewer[Content Reviewer] -->|Selected Post| PromptEng
+    Reviewer[Content Reviewer] -->|Selected Post| Evaluators
+    Evaluators[Online Evaluators] -->|Non-blocking| PromptEng
     PromptEng[Prompt Engineer] -->|Image Prompt| ImgGen
     ImgGen[Image Generator] -->|Image URL| ImgReviewer
     ImgReviewer[Image Reviewer] -->|Approved/Rejected| Decision{Approved?}
@@ -30,36 +32,37 @@ graph TD
     Decision -- No --> PromptEng
     PosterOrSaver{Enable Posting?} -- Yes --> Poster
     PosterOrSaver -- No --> Saver
-    Poster[Social Media Poster] --> Saver
+    Poster[Metricool Poster] --> Saver
     Saver[Local Saver] --> End
 ```
 
 ### Components
 
--   **src/workflow.py**: Defines the LangGraph structure and conditional logic.
--   **src/config.py**: Central configuration for LLM initialization and API key validation. Handles OpenRouter/OpenAI compatibility for LangSmith cost tracking.
--   **src/agents/**: Contains individual agent logic (Researcher, Creator, Reviewer, etc.).
--   **src/state.py**: Defines the `AgentState` TypedDict used to pass data between nodes.
+-   `src/workflow.py`: Defines the LangGraph structure and conditional logic.
+-   `src/config.py`: Central configuration for LLM initialization, caching, and API key validation. Supports OpenRouter/OpenAI.
+-   `src/agents/`: Contains individual agent logic (Researcher, Creator, Reviewer, Prompt Engineer, Image Generator/Reviewer, Poster, Saver).
+-   `src/state.py`: Defines the `AgentState` TypedDict used to pass data between nodes.
+-   `src/evaluators/`: Online evaluators (groundedness, relevance, conciseness) + composite metrics and feedback to LangSmith.
+-   `src/utils/metrics.py`: Node latency tracking and workflow metrics utilities.
 
 ## Prerequisites
 
--   **Python 3.10+**
--   **API Keys**:
-    -   **OpenAI** (Required for Image Generation/Vision if not using OpenRouter for everything, though DALL-E 3 usually requires direct OpenAI key or specific OpenRouter support).
-    -   **OpenRouter** (Optional, for accessing LLMs like GPT-4o).
-    -   **Tavily** or **Brave Search** (For research).
-    -   **X (Twitter)** (Consumer Key/Secret, Access Token/Secret with **Read & Write** permissions).
-    -   **LangSmith** (Optional, for tracing and observability).
+-   Python 3.10+
+-   API Keys:
+    -   OpenAI or OpenRouter (LLMs, image generation, vision).
+    -   Tavily or Brave Search (for research; if none, the Researcher falls back to static topics).
+    -   Metricool (API token, User ID, Blog ID for posting to Twitter/X via Metricool).
+    -   LangSmith (optional, for tracing and observability).
 
 ## Installation
 
-1.  **Clone the repository**:
+1.  Clone the repository:
     ```bash
     git clone <repository-url>
     cd automated-social-media-post-workflow
     ```
 
-2.  **Install dependencies**:
+2.  Install dependencies:
     ```bash
     pip install -r requirements.txt
     ```
@@ -70,25 +73,24 @@ Create a `.env` file in the root directory. You can use the template below:
 
 ```ini
 # --- LLM Providers ---
-# Primary LLM Provider (OpenRouter recommended for model variety)
+# OpenRouter supported (model variety)
 OPENROUTER_API_KEY=sk-or-...
 
-# OpenAI API Key (Required for DALL-E 3 image generation and Vision if not using OpenRouter)
+# OpenAI API Key (LLMs and image generation)
 OPENAI_API_KEY=sk-...
 
 # --- Search Providers (Pick one) ---
 TAVILY_API_KEY=tvly-...
 # BRAVE_API_KEY=...
 
-# --- Social Media (X/Twitter) ---
-# Required for posting. If missing, the 'Poster' agent will mock the post.
-X_CONSUMER_KEY=...
-X_CONSUMER_SECRET=...
-X_ACCESS_TOKEN=...
-X_ACCESS_TOKEN_SECRET=...
+# --- Posting via Metricool ---
+# If missing, the Poster agent will mock the post.
+METRICOOL_API=...
+METRICOOL_USER_ID=...
+METRICOOL_BLOG_ID=...
 
 # --- Feature Flags ---
-# Set to "true" to actually post to X. Defaults to "false" (save only).
+# If true, the workflow routes to Poster; if false, it routes directly to Saver.
 ENABLE_POSTING=false
 
 # --- LangSmith Tracing (Observability) ---
@@ -98,15 +100,13 @@ LANGCHAIN_API_KEY=lsv2-...
 LANGCHAIN_PROJECT="social-media-agent"
 ```
 
-### LangSmith Tracing & Cost Tracking
+### LangSmith Tracing & Evaluations
 
-To ensure accurate cost tracking in LangSmith, especially when using **OpenRouter**, the application is configured to handle model names carefully.
+Enable tracing with `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_API_KEY`. The workflow logs per-node latencies and submits evaluator feedback (groundedness, relevance, conciseness) and a composite score to LangSmith.
 
-1.  **Enable Tracing**: Set `LANGCHAIN_TRACING_V2=true` and provide your `LANGCHAIN_API_KEY`.
-2.  **Model Names**:
-    -   The system uses `gpt-4o` and `gpt-4o-mini`.
-    -   **OpenRouter Users**: The code in `src/config.py` automatically strips the `openai/` provider prefix when initializing the LangChain model. This ensures LangSmith recognizes the model name (e.g., `gpt-4o`) and applies the correct cost pricing from its registry.
-    -   **Verification**: Check your LangSmith traces. You should see "Token Usage" populated and a calculated "Cost" field. If cost is $0, ensure the model name in the trace is exactly `gpt-4o` (not `openai/gpt-4o`).
+- Models: Default chat models `gpt-5` and `gpt-5-mini`; image model `gpt-image-1-mini`; vision uses `gpt-5`.
+- OpenRouter: Supported; provider base URL is set automatically. Model names are passed as-is.
+- Verification: In LangSmith, you should see token usage, latency per node, evaluator feedback, and composite metrics.
 
 ## Usage
 
@@ -121,45 +121,37 @@ python main.py
 The workflow will:
 1.  Research a topic.
 2.  Generate and review content.
-3.  Generate an image.
-4.  Save the result to `social_media_posts/` (Markdown + Image).
-5.  Post to X if `ENABLE_POSTING=true`.
+3.  Run online evaluators (non-blocking quality checks).
+4.  Generate an image; review and retry up to 2 times if rejected.
+5.  Save the result to `social_media_posts/` (Markdown + local image in `social_media_posts/images/`).
+6.  Post via Metricool (Twitter/X) if `ENABLE_POSTING=true`.
 
-### Debugging X API
+### Testing
 
-To verify your X (Twitter) credentials without running the full workflow:
+- Run the saver node test to verify file writing and image handling:
 
 ```bash
-python debug_x.py
+python tests/test_saver.py
+python tests/verify_saver.py
 ```
 
 ## Development
-
-### Project Structure
 
 -   `main.py`: Entry point.
 -   `src/`: Source code.
 -   `tests/`: Test scripts.
 -   `social_media_posts/`: Output directory for generated content.
 
-### Testing
-
-Run the saver node test to verify file writing permissions and logic:
-
-```bash
-python tests/test_saver.py
-```
-
 ## Troubleshooting
 
-### LangSmith Cost is $0
--   **Cause**: LangSmith does not recognize the model name (e.g., `openai/gpt-4o`).
--   **Fix**: Ensure you are using the latest version of `src/config.py` which removes the provider prefix. Alternatively, manually add `openai/gpt-4o` as a custom model in your LangSmith settings with the appropriate pricing.
+### Evaluator Feedback Missing
+- Cause: Tracing not enabled or `LANGCHAIN_API_KEY` missing.
+- Fix: Enable `LANGCHAIN_TRACING_V2=true` and set `LANGCHAIN_API_KEY`.
 
 ### Image Generation Failed
--   **Cause**: Missing `OPENAI_API_KEY` or insufficient credits.
--   **Fix**: DALL-E 3 generation often requires a direct OpenAI key. Ensure `OPENAI_API_KEY` is set in `.env`.
+- Cause: Missing `OPENAI_API_KEY`/`OPENROUTER_API_KEY` or provider model not available.
+- Fix: Ensure API keys are set. For OpenRouter, `gpt-image-1-mini` may require `openai/`-prefixed model depending on provider availability.
 
-### "X API keys missing"
--   **Cause**: Environment variables not loaded or named incorrectly.
--   **Fix**: Ensure you use `X_CONSUMER_KEY` and `X_CONSUMER_SECRET` (or `X_API_KEY`/`SECRET`) in `.env`. The `debug_x.py` script can help diagnose this.
+### Metricool credentials missing
+- Cause: `METRICOOL_API`, `METRICOOL_USER_ID`, or `METRICOOL_BLOG_ID` not set.
+- Fix: Set these in `.env`. If missing, posting is mocked and content is still saved locally.
