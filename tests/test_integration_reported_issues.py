@@ -5,6 +5,10 @@ Integration test to verify the fix for:
 """
 import sys
 import os
+
+# Set required env vars BEFORE importing modules
+os.environ["OPENAI_API_KEY"] = "test-key"
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def test_scenario_missing_azure_storage():
@@ -14,13 +18,10 @@ def test_scenario_missing_azure_storage():
     """
     print("=== Test Scenario: Missing Azure Storage Credentials ===\n")
     
-    # Set up environment to simulate the issue
-    os.environ["OPENAI_API_KEY"] = "test-key"
-    os.environ["SOCIAL_NETWORKS"] = "twitter"
-    
     # Ensure Azure Storage credentials are NOT set (simulating the issue)
     os.environ.pop("AZURE_STORAGE_CONNECTION_STRING", None)
     os.environ.pop("AZURE_STORAGE_CONTAINER_NAME", None)
+    os.environ["SOCIAL_NETWORKS"] = "twitter"
     
     from src.agents.poster import poster_node, upload_image_to_metricool
     
@@ -58,15 +59,15 @@ def test_scenario_multi_network():
     """
     print("\n=== Test Scenario: Multi-Network Posting ===\n")
     
-    os.environ["OPENAI_API_KEY"] = "test-key"
-    os.environ["SOCIAL_NETWORKS"] = "twitter,facebook,instagram,linkedin"
+    # This is already set from the module import with the env var
+    from src.config import SOCIAL_NETWORKS
     
-    # Reload config to pick up changes
-    from importlib import reload
-    import src.config as config
-    reload(config)
+    # Temporarily change for this test
+    import src.agents.poster as poster_module
+    original_networks = poster_module.SOCIAL_NETWORKS
+    poster_module.SOCIAL_NETWORKS = ["twitter", "facebook", "instagram", "linkedin"]
     
-    print(f"Configured networks: {config.SOCIAL_NETWORKS}")
+    print(f"Configured networks: {poster_module.SOCIAL_NETWORKS}")
     
     from src.agents.poster import poster_node
     
@@ -77,6 +78,9 @@ def test_scenario_multi_network():
     
     result = poster_node(state)
     assert "post_status" in result
+    
+    # Restore original
+    poster_module.SOCIAL_NETWORKS = original_networks
     
     print("\n✓ Multi-network test passed")
     print("\nExpected behavior:")

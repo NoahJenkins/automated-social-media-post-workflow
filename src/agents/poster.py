@@ -4,6 +4,7 @@ import base64
 from datetime import datetime, timezone, timedelta
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from src.state import AgentState
+from src.config import SOCIAL_NETWORKS
 
 # Metricool API Configuration
 METRICOOL_BASE_URL = "https://app.metricool.com/api"
@@ -164,9 +165,6 @@ def poster_node(state: AgentState):
     api_token = os.getenv("METRICOOL_API")
     user_id = os.getenv("METRICOOL_USER_ID")
     blog_id = os.getenv("METRICOOL_BLOG_ID")
-    
-    # Get configured social networks
-    from src.config import SOCIAL_NETWORKS
     
     print(f"Configured networks: {', '.join(SOCIAL_NETWORKS)}")
     
