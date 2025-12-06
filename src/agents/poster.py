@@ -222,9 +222,7 @@ def poster_node(state: AgentState):
         
         # Build the providers array from configured networks
         # Metricool network names: twitter, facebook, instagram, linkedin
-        providers = []
-        for network in SOCIAL_NETWORKS:
-            providers.append({"network": network})
+        providers = [{"network": network} for network in SOCIAL_NETWORKS]
         
         if not providers:
             print("⚠️  WARNING: No social networks configured! Defaulting to Twitter.")

@@ -28,8 +28,7 @@ AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
 # Social Networks Configuration
 # Comma-separated list of networks to post to: twitter, facebook, instagram, linkedin
 # Default is twitter only for backward compatibility
-SOCIAL_NETWORKS = os.getenv("SOCIAL_NETWORKS", "twitter").lower().split(",")
-SOCIAL_NETWORKS = [net.strip() for net in SOCIAL_NETWORKS if net.strip()]
+SOCIAL_NETWORKS = [net.lower().strip() for net in os.getenv("SOCIAL_NETWORKS", "twitter").split(",") if net.strip()]
 # Ensure at least one network is configured, default to twitter
 if not SOCIAL_NETWORKS:
     SOCIAL_NETWORKS = ["twitter"]
