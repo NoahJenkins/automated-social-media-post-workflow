@@ -1,6 +1,6 @@
 # Automated Social Media Post Workflow
 
-An autonomous agentic workflow that researches trending tech topics, generates engaging social media content (text + images), reviews it for quality, and posts via Metricool (Twitter/X supported). Built with LangChain, LangGraph, and OpenAI/OpenRouter.
+An autonomous agentic workflow that researches trending tech topics, generates engaging social media content (text + images), reviews it for quality, and posts via Metricool to multiple social networks (Twitter/X, Facebook, Instagram, LinkedIn). Built with LangChain, LangGraph, and OpenAI/OpenRouter.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This project automates the entire social media content pipeline:
 4.  Online Evaluators: Non-blocking quality checks (groundedness, relevance, conciseness) with feedback to LangSmith.
 5.  Visuals: Generates an accompanying image using `gpt-image-1-mini` (OpenAI or OpenRouter).
 6.  Quality Control: A vision-enabled agent reviews the image for safety and relevance; up to 2 retries.
-7.  Publishing: Posts via Metricool (Twitter/X) or saves locally if posting is disabled.
+7.  Publishing: Posts via Metricool to configured social networks (Twitter/X, Facebook, Instagram, LinkedIn) or saves locally if posting is disabled.
 
 ## Architecture
 
@@ -49,10 +49,11 @@ graph TD
 
 -   Python 3.10+
 -   API Keys:
-    -   OpenAI or OpenRouter (LLMs, image generation, vision).
-    -   Tavily or Brave Search (for research; if none, the Researcher falls back to static topics).
-    -   Metricool (API token, User ID, Blog ID for posting to Twitter/X via Metricool).
-    -   LangSmith (optional, for tracing and observability).
+    -   **OpenAI or OpenRouter** (Required for LLMs, image generation, and vision).
+    -   **Tavily or Brave Search** (Optional for research; if not provided, the Researcher uses static fallback topics).
+    -   **Metricool** (Optional - API token, User ID, Blog ID for posting to social networks via Metricool).
+    -   **Azure Storage** (Optional - Connection string and container name for image uploads to Metricool).
+    -   **LangSmith** (Optional for tracing and observability).
 
 ## Installation
 
@@ -88,47 +89,113 @@ The dev container will automatically set up Python 3.12, install all dependencie
 
 ## Configuration
 
-Create a `.env` file in the root directory. You can use the template below:
+Create a `.env` file in the root directory with the following environment variables:
+
+### Required Environment Variables
+
+At minimum, you need one of these LLM providers:
 
 ```ini
-# --- LLM Providers ---
-# OpenRouter supported (model variety)
-OPENROUTER_API_KEY=sk-or-...
-
+# --- LLM Providers (Required - Choose one or both) ---
 # OpenAI API Key (LLMs and image generation)
 OPENAI_API_KEY=sk-...
 
-# --- Search Providers (Pick one) ---
+# OR use OpenRouter (supports multiple model providers)
+OPENROUTER_API_KEY=sk-or-...
+```
+
+### Optional Environment Variables
+
+These variables enable additional features:
+
+```ini
+# --- Search Providers (Optional - Pick one) ---
+# Used for researching trending topics. If not provided, uses static fallback topics.
 TAVILY_API_KEY=tvly-...
-# BRAVE_API_KEY=...
+# OR
+BRAVE_API_KEY=...
 
-# --- Posting via Metricool ---
-# If missing, the Poster agent will mock the post.
-METRICOOL_API=...
-METRICOOL_USER_ID=...
-METRICOOL_BLOG_ID=...
+# --- Posting via Metricool (Optional) ---
+# If missing, the Poster agent will mock the post and save locally instead.
+METRICOOL_API=your-metricool-api-token
+METRICOOL_USER_ID=your-user-id
+METRICOOL_BLOG_ID=your-blog-id
 
-# --- Azure Storage (Required for Image Uploads) ---
-# Images are uploaded to Azure Blob Storage before posting to Metricool.
+# --- Azure Storage (Required for Image Uploads with Metricool) ---
+# Images must be uploaded to Azure Blob Storage before posting to Metricool.
 # If missing, posts will be created WITHOUT images.
 AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net
 AZURE_STORAGE_CONTAINER_NAME=social-media-images
 
-# --- Social Networks Configuration ---
+# --- Social Networks Configuration (Optional) ---
 # Comma-separated list of networks to post to: twitter, facebook, instagram, linkedin
 # Default is "twitter" if not specified
 SOCIAL_NETWORKS=twitter,facebook,instagram,linkedin
 
-# --- Feature Flags ---
+# --- Feature Flags (Optional) ---
 # If true, the workflow routes to Poster; if false, it routes directly to Saver.
+# Default is false
 ENABLE_POSTING=false
 
-# --- LangSmith Tracing (Observability) ---
+# --- LangSmith Tracing (Optional - for Observability) ---
+# Enable tracing and evaluation feedback in LangSmith
 LANGCHAIN_TRACING_V2=true
-LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 LANGCHAIN_API_KEY=lsv2-...
-LANGCHAIN_PROJECT="social-media-agent"
+LANGCHAIN_PROJECT=social-media-agent
 ```
+
+### Complete Example `.env` File
+
+```ini
+# LLM Provider (required)
+OPENAI_API_KEY=sk-...
+
+# Search Provider (optional)
+TAVILY_API_KEY=tvly-...
+
+# Metricool (optional - for posting)
+METRICOOL_API=your-metricool-api-token
+METRICOOL_USER_ID=your-user-id
+METRICOOL_BLOG_ID=your-blog-id
+
+# Azure Storage (optional - for images)
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net
+AZURE_STORAGE_CONTAINER_NAME=social-media-images
+
+# Social Networks (optional)
+SOCIAL_NETWORKS=twitter,facebook,instagram,linkedin
+
+# Enable posting (optional, default is false)
+ENABLE_POSTING=true
+
+# LangSmith (optional - for observability)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=lsv2-...
+LANGCHAIN_PROJECT=social-media-agent
+```
+
+### Environment Variables Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes* | None | OpenAI API key for LLMs, image generation, and vision |
+| `OPENROUTER_API_KEY` | Yes* | None | OpenRouter API key (alternative to OpenAI) |
+| `TAVILY_API_KEY` | No | None | Tavily API key for web search (research feature) |
+| `BRAVE_API_KEY` | No | None | Brave Search API key (alternative to Tavily) |
+| `METRICOOL_API` | No | None | Metricool API token for posting |
+| `METRICOOL_USER_ID` | No | None | Metricool user ID |
+| `METRICOOL_BLOG_ID` | No | None | Metricool blog/account ID |
+| `AZURE_STORAGE_CONNECTION_STRING` | No | None | Azure Storage connection string for image uploads |
+| `AZURE_STORAGE_CONTAINER_NAME` | No | None | Azure Storage container name for images |
+| `SOCIAL_NETWORKS` | No | `twitter` | Comma-separated list of networks: twitter, facebook, instagram, linkedin |
+| `ENABLE_POSTING` | No | `false` | Set to `true` to enable actual posting via Metricool |
+| `LANGCHAIN_TRACING_V2` | No | `false` | Enable LangSmith tracing |
+| `LANGCHAIN_API_KEY` | No | None | LangSmith API key |
+| `LANGCHAIN_PROJECT` | No | None | LangSmith project name |
+| `LANGCHAIN_ENDPOINT` | No | `https://api.smith.langchain.com` | LangSmith API endpoint |
+
+\* At least one LLM provider (OpenAI or OpenRouter) is required.
 
 ### LangSmith Tracing & Evaluations
 
@@ -154,15 +221,31 @@ The workflow will:
 3.  Run online evaluators (non-blocking quality checks).
 4.  Generate an image; review and retry up to 2 times if rejected.
 5.  Save the result to `social_media_posts/` (Markdown + local image in `social_media_posts/images/`).
-6.  Post via Metricool (Twitter/X) if `ENABLE_POSTING=true`.
+6.  Post via Metricool to configured social networks if `ENABLE_POSTING=true`, otherwise save locally only.
 
 ### Testing
 
-- Run the saver node test to verify file writing and image handling:
+The repository includes several test files to verify different aspects of the workflow:
 
 ```bash
+# Test the dev container setup
+python tests/test_devcontainer.py
+
+# Test the saver node (file writing and image handling)
 python tests/test_saver.py
 python tests/verify_saver.py
+
+# Test multi-network posting configuration
+python tests/test_multi_network.py
+
+# Test social networks config parsing
+python tests/test_social_networks_config.py
+
+# Test the poster agent
+python tests/test_poster.py
+
+# Integration test for reported issues
+python tests/test_integration_reported_issues.py
 ```
 
 ## Development
