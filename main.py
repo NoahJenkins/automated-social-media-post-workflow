@@ -32,6 +32,8 @@ def main():
         "image_approved": False,
         "critique": None,
         "post_status": None,
+        "post_id": None,
+        "post_scheduled": False,
         "retry_count": 0,
         # Metrics tracking fields
         "node_latencies": {},

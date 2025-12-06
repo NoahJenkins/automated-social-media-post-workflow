@@ -45,10 +45,53 @@ def upload_image_to_metricool(image_path: str, user_id: str, blog_id: str, api_t
         return None
 
 
+def verify_post_scheduled(post_id: str, user_id: str, blog_id: str, api_token: str) -> bool:
+    """
+    Verifies that a post was successfully scheduled by retrieving it from Metricool.
+    Returns True if the post exists and is scheduled, False otherwise.
+    """
+    try:
+        headers = {
+            "X-Mc-Auth": api_token,
+            "Content-Type": "application/json"
+        }
+        
+        # Get the list of scheduled posts to verify our post is there
+        url = f"{METRICOOL_BASE_URL}/v2/scheduler/posts"
+        params = {
+            "userId": user_id,
+            "blogId": blog_id
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            result = response.json()
+            posts = result.get("data", [])
+            
+            # Check if our post ID exists in the scheduled posts
+            for post in posts:
+                if post.get("id") == post_id:
+                    status = post.get("status", "").lower()
+                    print(f"Post verification: Found post {post_id} with status '{status}'")
+                    return status in ["scheduled", "pending"]
+            
+            print(f"Post verification: Post {post_id} not found in scheduled posts")
+            return False
+        else:
+            print(f"Post verification failed: HTTP {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"Post verification error: {e}")
+        return False
+
+
 def poster_node(state: AgentState):
     """
     Posts the content and image to social media via Metricool API.
     Currently configured for Twitter/X, with easy extension to other platforms.
+    Includes post confirmation logic to verify successful scheduling.
     """
     print("--- POSTER AGENT (Metricool) ---")
     
@@ -64,7 +107,11 @@ def poster_node(state: AgentState):
         print("Metricool API token missing. MOCK POSTING.")
         print(f"POST TEXT: {text}")
         print(f"POST IMAGE: {image_path}")
-        return {"post_status": "Mock Posted (No API Token)"}
+        return {
+            "post_status": "Mock Posted (No API Token)",
+            "post_id": None,
+            "post_scheduled": False
+        }
     
     if not user_id or not blog_id:
         print("Metricool USER_ID or BLOG_ID missing. MOCK POSTING.")
@@ -72,7 +119,11 @@ def poster_node(state: AgentState):
         print("  https://app.metricool.com/...?blogId=XXXXX&userId=XXXXX")
         print(f"POST TEXT: {text}")
         print(f"POST IMAGE: {image_path}")
-        return {"post_status": "Mock Posted (Missing User/Blog ID)"}
+        return {
+            "post_status": "Mock Posted (Missing User/Blog ID)",
+            "post_id": None,
+            "post_scheduled": False
+        }
     
     try:
         # Prepare headers
@@ -122,19 +173,88 @@ def poster_node(state: AgentState):
             "blogId": blog_id
         }
         
-        print(f"Posting to Metricool...")
+        print(f"Posting to Metricool API...")
         response = requests.post(url, headers=headers, params=params, json=payload)
         
-        if response.status_code == 200:
-            result = response.json()
-            post_id = result.get("data", {}).get("id", "unknown")
-            print(f"Successfully scheduled post via Metricool! Post ID: {post_id}")
-            return {"post_status": "Posted via Metricool"}
+        # Parse response and verify success
+        if response.status_code in [200, 201]:
+            try:
+                result = response.json()
+                
+                # Extract post ID and status from response
+                post_id = result.get("id") or result.get("data", {}).get("id")
+                status = result.get("status", "unknown")
+                
+                if not post_id:
+                    print(f"Warning: No post ID in response. Response: {result}")
+                    return {
+                        "post_status": "Posted but no ID returned",
+                        "post_id": None,
+                        "post_scheduled": False
+                    }
+                
+                print(f"Metricool API response: Post ID: {post_id}, Status: {status}")
+                
+                # Verify the post was actually scheduled
+                is_scheduled = verify_post_scheduled(post_id, user_id, blog_id, api_token)
+                
+                if is_scheduled:
+                    print(f"✓ Post successfully scheduled! Post ID: {post_id}")
+                    return {
+                        "post_status": f"Successfully scheduled (ID: {post_id})",
+                        "post_id": post_id,
+                        "post_scheduled": True
+                    }
+                else:
+                    print(f"⚠ Post may not be scheduled. Post ID: {post_id}, Status: {status}")
+                    return {
+                        "post_status": f"Scheduled with unconfirmed status (ID: {post_id})",
+                        "post_id": post_id,
+                        "post_scheduled": False
+                    }
+                    
+            except ValueError as e:
+                print(f"Error parsing JSON response: {e}")
+                print(f"Response text: {response.text}")
+                return {
+                    "post_status": f"Posted but response parsing failed: {str(e)}",
+                    "post_id": None,
+                    "post_scheduled": False
+                }
         else:
-            print(f"Metricool API error: {response.status_code}")
+            print(f"Metricool API error: HTTP {response.status_code}")
             print(f"Response: {response.text}")
-            return {"post_status": f"Failed: {response.status_code}"}
+            
+            # Try to parse error details
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("message", error_data.get("error", response.text))
+                print(f"Error details: {error_msg}")
+                return {
+                    "post_status": f"Failed: {error_msg}",
+                    "post_id": None,
+                    "post_scheduled": False
+                }
+            except:
+                return {
+                    "post_status": f"Failed: HTTP {response.status_code}",
+                    "post_id": None,
+                    "post_scheduled": False
+                }
         
+    except requests.exceptions.RequestException as e:
+        print(f"Network error during posting: {e}")
+        return {
+            "post_status": f"Network error: {str(e)}",
+            "post_id": None,
+            "post_scheduled": False
+        }
     except Exception as e:
-        print(f"Posting failed: {e}")
-        return {"post_status": f"Failed: {str(e)}"}
+        print(f"Posting failed with unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "post_status": f"Failed: {str(e)}",
+            "post_id": None,
+            "post_scheduled": False
+        }
