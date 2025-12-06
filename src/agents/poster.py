@@ -158,8 +158,7 @@ def poster_node(state: AgentState):
             "publicationDate": publication_date,
             "providers": [
                 {
-                    "network": "twitter",
-                    "status": "PENDING"
+                    "network": "twitter"
                 }
             ],
             "autoPublish": True,
