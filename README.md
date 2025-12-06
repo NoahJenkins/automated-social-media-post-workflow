@@ -108,6 +108,17 @@ METRICOOL_API=...
 METRICOOL_USER_ID=...
 METRICOOL_BLOG_ID=...
 
+# --- Azure Storage (Required for Image Uploads) ---
+# Images are uploaded to Azure Blob Storage before posting to Metricool.
+# If missing, posts will be created WITHOUT images.
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net
+AZURE_STORAGE_CONTAINER_NAME=social-media-images
+
+# --- Social Networks Configuration ---
+# Comma-separated list of networks to post to: twitter, facebook, instagram, linkedin
+# Default is "twitter" if not specified
+SOCIAL_NETWORKS=twitter,facebook,instagram,linkedin
+
 # --- Feature Flags ---
 # If true, the workflow routes to Poster; if false, it routes directly to Saver.
 ENABLE_POSTING=false
@@ -163,9 +174,22 @@ python tests/verify_saver.py
 
 ## Troubleshooting
 
+### Post Scheduled But No Image Appears
+- **Cause**: Azure Storage credentials (`AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER_NAME`) are not configured.
+- **Fix**: Set up an Azure Storage account and add the credentials to your `.env` file. Images must be uploaded to Azure Blob Storage before Metricool can use them.
+- **Workaround**: Posts will still be created, but without images if Azure Storage is not configured.
+
+### Post Only Goes to Twitter/X
+- **Cause**: The `SOCIAL_NETWORKS` environment variable is not set or only includes Twitter.
+- **Fix**: Set `SOCIAL_NETWORKS` in your `.env` file to include all desired networks:
+  ```ini
+  SOCIAL_NETWORKS=twitter,facebook,instagram,linkedin
+  ```
+- **Note**: Ensure your Metricool account is connected to all the social networks you want to post to.
+
 ### Evaluator Feedback Missing
-- Cause: Tracing not enabled or `LANGCHAIN_API_KEY` missing.
-- Fix: Enable `LANGCHAIN_TRACING_V2=true` and set `LANGCHAIN_API_KEY`.
+- **Cause**: Tracing not enabled or `LANGCHAIN_API_KEY` missing.
+- **Fix**: Enable `LANGCHAIN_TRACING_V2=true` and set `LANGCHAIN_API_KEY`.
 
 ### Image Generation Failed
 - Cause: Missing `OPENAI_API_KEY`/`OPENROUTER_API_KEY` or provider model not available.

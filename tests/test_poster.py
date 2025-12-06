@@ -5,6 +5,10 @@ This test verifies the response parsing and state updates.
 import sys
 import os
 import tempfile
+
+# Set required env vars BEFORE importing modules
+os.environ["OPENAI_API_KEY"] = "test-key"
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.agents.poster import poster_node
