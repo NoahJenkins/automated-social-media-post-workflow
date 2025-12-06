@@ -21,6 +21,17 @@ def remove_json_comments(content):
     return '\n'.join(cleaned_lines)
 
 
+def get_devcontainer_config():
+    """Load and parse devcontainer.json configuration."""
+    devcontainer_json = ".devcontainer/devcontainer.json"
+    
+    with open(devcontainer_json, 'r') as f:
+        content = f.read()
+    
+    cleaned_content = remove_json_comments(content)
+    return json.loads(cleaned_content)
+
+
 def test_devcontainer_exists():
     """Test that .devcontainer directory exists."""
     devcontainer_dir = ".devcontainer"
@@ -46,14 +57,8 @@ def test_devcontainer_json_valid():
     """Test that devcontainer.json is valid JSON (with comments removed)."""
     devcontainer_json = ".devcontainer/devcontainer.json"
     
-    with open(devcontainer_json, 'r') as f:
-        content = f.read()
-    
-    cleaned_content = remove_json_comments(content)
-    
-    # Try to parse as JSON
     try:
-        json.loads(cleaned_content)
+        get_devcontainer_config()
         print(f"✓ {devcontainer_json} is valid JSON (JSONC)")
     except json.JSONDecodeError as e:
         print(f"✗ {devcontainer_json} has JSON syntax error: {e}")
@@ -63,12 +68,7 @@ def test_devcontainer_json_valid():
 def test_devcontainer_json_has_required_fields():
     """Test that devcontainer.json has required fields."""
     devcontainer_json = ".devcontainer/devcontainer.json"
-    
-    with open(devcontainer_json, 'r') as f:
-        content = f.read()
-    
-    cleaned_content = remove_json_comments(content)
-    config = json.loads(cleaned_content)
+    config = get_devcontainer_config()
     
     # Check required fields
     assert 'name' in config, "devcontainer.json missing 'name' field"
