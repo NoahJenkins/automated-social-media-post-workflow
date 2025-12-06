@@ -74,6 +74,9 @@ def test_poster_with_image():
 if __name__ == "__main__":
     print("=== Testing Poster Node ===\n")
     
+    # Set required env vars for config
+    os.environ["OPENAI_API_KEY"] = "test-key"
+    
     try:
         test_poster_with_mock_credentials()
         test_poster_state_updates()

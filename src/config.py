@@ -21,6 +21,16 @@ METRICOOL_API_TOKEN = os.getenv("METRICOOL_API")
 METRICOOL_USER_ID = os.getenv("METRICOOL_USER_ID")
 METRICOOL_BLOG_ID = os.getenv("METRICOOL_BLOG_ID")
 
+# Azure Storage Configuration (for image uploads to Metricool)
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+AZURE_STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
+
+# Social Networks Configuration
+# Comma-separated list of networks to post to: twitter, facebook, instagram, linkedin
+# Default is twitter only for backward compatibility
+SOCIAL_NETWORKS = os.getenv("SOCIAL_NETWORKS", "twitter").lower().split(",")
+SOCIAL_NETWORKS = [net.strip() for net in SOCIAL_NETWORKS if net.strip()]
+
 # Feature Flags
 ENABLE_POSTING = os.getenv("ENABLE_POSTING", "False").lower() == "true"
 

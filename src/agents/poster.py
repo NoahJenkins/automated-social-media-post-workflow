@@ -15,6 +15,7 @@ def upload_image_to_metricool(image_input: str) -> str | None:
     and returns the public blob URL for use in Metricool API.
     """
     if not image_input:
+        print("Warning: No image provided to upload_image_to_metricool")
         return None
     
     try:
@@ -23,7 +24,10 @@ def upload_image_to_metricool(image_input: str) -> str | None:
         container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
         
         if not connection_string or not container_name:
-            print("Azure Storage credentials missing. Cannot upload image.")
+            print("⚠️  WARNING: Azure Storage credentials missing!")
+            print("    Set AZURE_STORAGE_CONNECTION_STRING and AZURE_STORAGE_CONTAINER_NAME")
+            print("    in your .env file to upload images to Metricool.")
+            print("    Post will be created WITHOUT an image.")
             return None
         
         # Get image bytes from input
@@ -147,18 +151,24 @@ def verify_post_scheduled(post_id: str, user_id: str, blog_id: str, api_token: s
 def poster_node(state: AgentState):
     """
     Posts the content and image to social media via Metricool API.
-    Currently configured for Twitter/X, with easy extension to other platforms.
+    Supports multiple networks: Twitter/X, Facebook, Instagram, LinkedIn.
+    Networks are configured via SOCIAL_NETWORKS environment variable.
     Includes post confirmation logic to verify successful scheduling.
     """
     print("--- POSTER AGENT (Metricool) ---")
     
     text = state["selected_post"]
-    image_path = state.get("image_url")  # This is actually a local file path
+    image_path = state.get("image_url")  # This can be a URL, data URI, or local file path
     
     # Get Metricool credentials
     api_token = os.getenv("METRICOOL_API")
     user_id = os.getenv("METRICOOL_USER_ID")
     blog_id = os.getenv("METRICOOL_BLOG_ID")
+    
+    # Get configured social networks
+    from src.config import SOCIAL_NETWORKS
+    
+    print(f"Configured networks: {', '.join(SOCIAL_NETWORKS)}")
     
     if not api_token:
         print("Metricool API token missing. MOCK POSTING.")
@@ -202,20 +212,31 @@ def poster_node(state: AgentState):
         # Prepare media if we have an image
         media_urls = []
         if image_path:
+            print(f"Attempting to upload image: {image_path[:100]}...")
             media_url = upload_image_to_metricool(image_path)
             if media_url:
                 media_urls.append(media_url)
+                print(f"✓ Image uploaded successfully")
+            else:
+                print(f"⚠️  Image upload failed - posting without image")
+        else:
+            print("ℹ️  No image provided for this post")
         
-        # Build the post payload for Twitter/X
-        # providers array specifies which networks to post to
+        # Build the providers array from configured networks
+        # Metricool network names: twitter, facebook, instagram, linkedin
+        providers = []
+        for network in SOCIAL_NETWORKS:
+            providers.append({"network": network})
+        
+        if not providers:
+            print("⚠️  WARNING: No social networks configured! Defaulting to Twitter.")
+            providers = [{"network": "twitter"}]
+        
+        # Build the post payload
         payload = {
             "text": text,
             "publicationDate": publication_date,
-            "providers": [
-                {
-                    "network": "twitter"
-                }
-            ],
+            "providers": providers,
             "draft": False
         }
         
@@ -231,6 +252,10 @@ def poster_node(state: AgentState):
         }
         
         print(f"Posting to Metricool API...")
+        print(f"  Networks: {', '.join([p['network'] for p in providers])}")
+        print(f"  Media attached: {'Yes' if media_urls else 'No'}")
+        print(f"  Scheduled for: {scheduled_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        
         response = requests.post(url, headers=headers, params=params, json=payload)
         
         # Parse response and verify success
@@ -253,19 +278,22 @@ def poster_node(state: AgentState):
                     }
                 
                 # Check providers status to verify scheduling
-                providers = post_data.get("providers", [])
-                if providers:
+                providers_response = post_data.get("providers", [])
+                if providers_response:
                     # Check if any provider has PENDING or scheduled status
-                    provider_statuses = [p.get("status", "").upper() for p in providers]
+                    provider_statuses = [p.get("status", "").upper() for p in providers_response]
                     is_scheduled = any(status in ["PENDING", "SCHEDULED"] for status in provider_statuses)
-                    status_str = ", ".join([f"{p.get('network')}: {p.get('status')}" for p in providers])
+                    status_str = ", ".join([f"{p.get('network')}: {p.get('status')}" for p in providers_response])
                     
-                    print(f"Metricool API response: Post ID: {post_id}, Provider statuses: {status_str}")
+                    print(f"Metricool API response: Post ID: {post_id}")
+                    print(f"  Provider statuses: {status_str}")
+                    print(f"  Media included: {'Yes' if media_urls else 'No'}")
                     
                     if is_scheduled:
-                        print(f"✓ Post successfully scheduled! Post ID: {post_id}")
+                        networks_str = ", ".join([p.get('network') for p in providers_response])
+                        print(f"✓ Post successfully scheduled for: {networks_str}")
                         return {
-                            "post_status": f"Successfully scheduled (ID: {post_id})",
+                            "post_status": f"Successfully scheduled on {networks_str} (ID: {post_id})",
                             "post_id": post_id,
                             "post_scheduled": True
                         }
