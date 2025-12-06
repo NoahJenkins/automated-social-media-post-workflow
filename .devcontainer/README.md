@@ -55,16 +55,16 @@ Remember to create a `.env` file in the root directory with your API keys:
 
 ```ini
 # LLM Providers
-OPENROUTER_API_KEY=sk-or-...
-OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 
 # Search Providers
-TAVILY_API_KEY=tvly-...
+TAVILY_API_KEY=your_tavily_api_key_here
 
 # Metricool (for posting)
-METRICOOL_API=...
-METRICOOL_USER_ID=...
-METRICOOL_BLOG_ID=...
+METRICOOL_API=your_metricool_api_token_here
+METRICOOL_USER_ID=your_metricool_user_id_here
+METRICOOL_BLOG_ID=your_metricool_blog_id_here
 
 # Feature Flags
 ENABLE_POSTING=false
@@ -72,7 +72,7 @@ ENABLE_POSTING=false
 # LangSmith Tracing
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
-LANGCHAIN_API_KEY=lsv2-...
+LANGCHAIN_API_KEY=your_langsmith_api_key_here
 LANGCHAIN_PROJECT="social-media-agent"
 ```
 

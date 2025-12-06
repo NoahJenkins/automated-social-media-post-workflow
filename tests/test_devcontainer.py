@@ -7,6 +7,20 @@ import os
 import sys
 
 
+def remove_json_comments(content):
+    """Remove // style comments from JSON content."""
+    lines = content.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        if '//' in line:
+            before_comment = line.split('//')[0].strip()
+            if before_comment:
+                cleaned_lines.append(before_comment)
+        else:
+            cleaned_lines.append(line)
+    return '\n'.join(cleaned_lines)
+
+
 def test_devcontainer_exists():
     """Test that .devcontainer directory exists."""
     devcontainer_dir = ".devcontainer"
@@ -32,26 +46,10 @@ def test_devcontainer_json_valid():
     """Test that devcontainer.json is valid JSON (with comments removed)."""
     devcontainer_json = ".devcontainer/devcontainer.json"
     
-    # Read the file
     with open(devcontainer_json, 'r') as f:
         content = f.read()
     
-    # Remove line comments (// style)
-    lines = content.split('\n')
-    cleaned_lines = []
-    for line in lines:
-        # Remove // comments but keep the line if it has content before //
-        if '//' in line:
-            before_comment = line.split('//')[0].strip()
-            if before_comment and not before_comment.endswith(','):
-                # If there's content before comment and it's not just a comma
-                cleaned_lines.append(before_comment)
-            elif before_comment:
-                cleaned_lines.append(before_comment)
-        else:
-            cleaned_lines.append(line)
-    
-    cleaned_content = '\n'.join(cleaned_lines)
+    cleaned_content = remove_json_comments(content)
     
     # Try to parse as JSON
     try:
@@ -69,18 +67,7 @@ def test_devcontainer_json_has_required_fields():
     with open(devcontainer_json, 'r') as f:
         content = f.read()
     
-    # Remove comments for parsing
-    lines = content.split('\n')
-    cleaned_lines = []
-    for line in lines:
-        if '//' in line:
-            before_comment = line.split('//')[0].strip()
-            if before_comment:
-                cleaned_lines.append(before_comment)
-        else:
-            cleaned_lines.append(line)
-    
-    cleaned_content = '\n'.join(cleaned_lines)
+    cleaned_content = remove_json_comments(content)
     config = json.loads(cleaned_content)
     
     # Check required fields
