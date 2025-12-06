@@ -13,6 +13,8 @@ class AgentState(TypedDict):
     image_approved: bool
     critique: Optional[str]
     post_status: Optional[str]
+    post_id: Optional[str]  # Metricool post ID for verification
+    post_scheduled: bool  # Whether post was successfully scheduled
     retry_count: int
     day_of_week: Optional[str]
     theme: Optional[str]
