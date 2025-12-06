@@ -56,6 +56,25 @@ graph TD
 
 ## Installation
 
+### Option 1: Using VS Code Dev Container (Recommended)
+
+If you have Docker and VS Code with the Dev Containers extension installed:
+
+1.  Clone the repository:
+    ```bash
+    git clone <repository-url>
+    cd automated-social-media-post-workflow
+    ```
+
+2.  Open in VS Code and reopen in container:
+    - Open the folder in VS Code
+    - When prompted, click "Reopen in Container"
+    - Or press `F1` and run `Dev Containers: Reopen in Container`
+
+The dev container will automatically set up Python 3.12, install all dependencies, and configure VS Code with recommended extensions. See [.devcontainer/README.md](.devcontainer/README.md) for more details.
+
+### Option 2: Local Installation
+
 1.  Clone the repository:
     ```bash
     git clone <repository-url>
