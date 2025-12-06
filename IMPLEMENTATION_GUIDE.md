@@ -244,7 +244,7 @@ Update `src/agents/content_creator.py`:
 from src.state import AgentState
 from src.config import get_llm
 from langchain_core.messages import SystemMessage, HumanMessage
-from src.templates.post_structures import get_random_template, format_template_guide  # ADD THIS
+from src.templates.post_structures import get_random_template, format_template_guide
 
 def content_creator_node(state: AgentState):
     """

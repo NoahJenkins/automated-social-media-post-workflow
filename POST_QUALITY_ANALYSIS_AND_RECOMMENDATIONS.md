@@ -445,8 +445,8 @@ POST_TEMPLATES = {
 |----------------|--------|--------|----------|---------------------|
 | Value-First Prompt Framework | Medium | HIGH | P1 | 1 |
 | Post-Structure Templates | Low | HIGH | P1 | 2 |
-| Multi-Dimensional Research | High | HIGH | P1 | 3 |
-| Enhanced Content Review | Medium | MEDIUM | P2 | 4 |
+| Enhanced Content Review | Medium | MEDIUM | P1 | 3 |
+| Multi-Dimensional Research | High | HIGH | P2 | 4 |
 | Value Assessment Evaluator | Medium | MEDIUM | P2 | 5 |
 | Insight Extraction | Medium | MEDIUM | P2 | 6 |
 | Source Quality Filtering | Medium | LOW | P3 | 7 |
