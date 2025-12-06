@@ -13,6 +13,9 @@ def saver_node(state: AgentState):
     post_text = state.get("selected_post")
     image_url = state.get("image_url")
     topic = state.get("topic", "unknown_topic")
+    post_status = state.get("post_status", "Unknown")
+    post_id = state.get("post_id")
+    post_scheduled = state.get("post_scheduled", False)
     
     # Sanitize topic for filename
     safe_topic = "".join(c for c in topic if c.isalnum() or c in (' ', '_', '-')).rstrip().replace(' ', '_')
@@ -78,6 +81,9 @@ def saver_node(state: AgentState):
     content = f"""# Social Media Post
 **Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Topic:** {topic}
+**Status:** {post_status}
+{f"**Post ID:** {post_id}" if post_id else ""}
+{f"**Scheduled:** {'✓ Yes' if post_scheduled else '✗ No'}" if post_id else ""}
 
 ## Content
 {post_text}
