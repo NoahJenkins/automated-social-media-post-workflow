@@ -7,3 +7,4 @@ langsmith>=0.2.0
 tavily-python
 python-dotenv
 requests
+azure-storage-blob

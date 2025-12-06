@@ -1,47 +1,99 @@
 import os
 import requests
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from src.state import AgentState
 
 # Metricool API Configuration
 METRICOOL_BASE_URL = "https://app.metricool.com/api"
 
 
-def upload_image_to_metricool(image_path: str, user_id: str, blog_id: str, api_token: str) -> str | None:
+def upload_image_to_metricool(image_input: str) -> str | None:
     """
-    Uploads a local image to Metricool and returns the hosted URL.
-    Uses the normalize/image/url endpoint or uploads via multipart form.
+    Uploads an image (data URI, URL, or local path) to Azure Blob Storage
+    and returns the public blob URL for use in Metricool API.
     """
-    if not image_path or not os.path.exists(image_path):
+    if not image_input:
         return None
     
     try:
-        # Read the image file and encode as base64
-        with open(image_path, "rb") as f:
-            image_data = f.read()
+        # Get Azure credentials
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
         
-        # For local files, we need to upload them first
-        # Metricool's scheduler accepts media URLs, so we'll use a data URL approach
-        # or return the local path for the API to handle
+        if not connection_string or not container_name:
+            print("Azure Storage credentials missing. Cannot upload image.")
+            return None
         
-        # Get file extension
-        ext = os.path.splitext(image_path)[1].lower()
-        mime_types = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".gif": "image/gif",
-            ".webp": "image/webp"
-        }
-        mime_type = mime_types.get(ext, "image/jpeg")
+        # Get image bytes from input
+        image_bytes = None
+        if image_input.startswith("data:"):
+            # Data URI: extract base64 and decode
+            try:
+                header, encoded = image_input.split(",", 1)
+                image_bytes = base64.b64decode(encoded)
+            except ValueError:
+                print(f"Invalid data URI format: {image_input[:50]}...")
+                return None
+        elif image_input.startswith("http://") or image_input.startswith("https://"):
+            # HTTP URL: fetch the image
+            try:
+                response = requests.get(image_input, timeout=30)
+                response.raise_for_status()
+                image_bytes = response.content
+            except requests.RequestException as e:
+                print(f"Failed to fetch image from URL: {e}")
+                return None
+        else:
+            # Assume local file path
+            if os.path.exists(image_input):
+                with open(image_input, "rb") as f:
+                    image_bytes = f.read()
+            else:
+                print(f"Local image file not found: {image_input}")
+                return None
         
-        # Return base64 data URL for now - Metricool API should handle this
-        base64_data = base64.b64encode(image_data).decode("utf-8")
-        return f"data:{mime_type};base64,{base64_data}"
+        if not image_bytes:
+            print("No image data to upload")
+            return None
+        
+        # Create blob service client
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        
+        # Generate unique blob name
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        # Sanitize topic for filename if available, else use generic
+        topic_part = "social_post_image"  # fallback
+        blob_name = f"{timestamp}_{topic_part}.png"  # assume PNG, but could detect
+        
+        # Upload to blob
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        blob_client.upload_blob(image_bytes, overwrite=True)
+        
+        # Generate SAS URL for public access
+        # Extract account name and key from connection string
+        account_name = connection_string.split("AccountName=")[1].split(";")[0]
+        account_key = connection_string.split("AccountKey=")[1].split(";")[0]
+        
+        # Generate SAS token valid for 24 hours
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(hours=24)
+        )
+        
+        # Return public SAS URL
+        public_url = f"https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{sas_token}"
+        
+        print(f"Image uploaded to Azure Blob Storage: {public_url}")
+        return public_url
         
     except Exception as e:
-        print(f"Error processing image: {e}")
+        print(f"Error uploading image to Azure: {e}")
         return None
 
 
@@ -71,16 +123,17 @@ def verify_post_scheduled(post_id: str, user_id: str, blog_id: str, api_token: s
         
         if response.status_code == 200:
             result = response.json()
-            posts = result.get("data", [])
+            # The API returns {posts: [...]} not {data: [...]}
+            posts = result.get("posts", [])
             
             # Check if our post ID exists in the scheduled posts
             for post in posts:
-                if post.get("id") == post_id:
+                if str(post.get("id")) == str(post_id):
                     status = post.get("status", "").lower()
                     print(f"Post verification: Found post {post_id} with status '{status}'")
                     return status in ["scheduled", "pending"]
             
-            print(f"Post verification: Post {post_id} not found in scheduled posts")
+            print(f"Post verification: Post {post_id} not found in {len(posts)} scheduled posts")
             return False
         else:
             print(f"Post verification failed: HTTP {response.status_code}")
@@ -137,17 +190,19 @@ def poster_node(state: AgentState):
         }
         
         # Build the scheduled post payload
-        # Post immediately by setting publicationDate to now
+        # Schedule post 5 minutes in the future (Metricool may not support immediate posting)
+        from datetime import timedelta
         now = datetime.now(timezone.utc)
+        scheduled_time = now + timedelta(minutes=5)
         publication_date = {
-            "dateTime": now.strftime("%Y-%m-%dT%H:%M:%S"),
+            "dateTime": scheduled_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "timezone": "UTC"
         }
         
         # Prepare media if we have an image
         media_urls = []
         if image_path:
-            media_url = upload_image_to_metricool(image_path, user_id, blog_id, api_token)
+            media_url = upload_image_to_metricool(image_path)
             if media_url:
                 media_urls.append(media_url)
         
@@ -161,7 +216,6 @@ def poster_node(state: AgentState):
                     "network": "twitter"
                 }
             ],
-            "autoPublish": True,
             "draft": False
         }
         
@@ -183,13 +237,12 @@ def poster_node(state: AgentState):
         if response.status_code in [200, 201]:
             try:
                 result = response.json()
+                print(f"DEBUG: Full Metricool API response: {result}")
                 
-                # Extract post ID and status from response
-                # Try both flat structure (result.id) and nested structure (result.data.id)
-                post_id = result.get("id")
-                if post_id is None:
-                    post_id = result.get("data", {}).get("id")
-                status = result.get("status", "unknown")
+                # Extract post data from response
+                # API returns {'data': {...}} structure
+                post_data = result.get("data", {})
+                post_id = post_data.get("id")
                 
                 if not post_id:
                     print(f"Warning: No post ID in response. Response: {result}")
@@ -199,22 +252,34 @@ def poster_node(state: AgentState):
                         "post_scheduled": False
                     }
                 
-                print(f"Metricool API response: Post ID: {post_id}, Status: {status}")
-                
-                # Verify the post was actually scheduled
-                is_scheduled = verify_post_scheduled(post_id, user_id, blog_id, api_token)
-                
-                if is_scheduled:
-                    print(f"✓ Post successfully scheduled! Post ID: {post_id}")
-                    return {
-                        "post_status": f"Successfully scheduled (ID: {post_id})",
-                        "post_id": post_id,
-                        "post_scheduled": True
-                    }
+                # Check providers status to verify scheduling
+                providers = post_data.get("providers", [])
+                if providers:
+                    # Check if any provider has PENDING or scheduled status
+                    provider_statuses = [p.get("status", "").upper() for p in providers]
+                    is_scheduled = any(status in ["PENDING", "SCHEDULED"] for status in provider_statuses)
+                    status_str = ", ".join([f"{p.get('network')}: {p.get('status')}" for p in providers])
+                    
+                    print(f"Metricool API response: Post ID: {post_id}, Provider statuses: {status_str}")
+                    
+                    if is_scheduled:
+                        print(f"✓ Post successfully scheduled! Post ID: {post_id}")
+                        return {
+                            "post_status": f"Successfully scheduled (ID: {post_id})",
+                            "post_id": post_id,
+                            "post_scheduled": True
+                        }
+                    else:
+                        print(f"⚠ Post created but status unclear: {status_str}")
+                        return {
+                            "post_status": f"Created with status: {status_str} (ID: {post_id})",
+                            "post_id": post_id,
+                            "post_scheduled": False
+                        }
                 else:
-                    print(f"⚠ Post may not be scheduled. Post ID: {post_id}, Status: {status}")
+                    print(f"⚠ No providers in response. Post ID: {post_id}")
                     return {
-                        "post_status": f"Scheduled with unconfirmed status (ID: {post_id})",
+                        "post_status": f"Created but no provider status (ID: {post_id})",
                         "post_id": post_id,
                         "post_scheduled": False
                     }
