@@ -4,6 +4,7 @@ This test verifies the response parsing and state updates.
 """
 import sys
 import os
+import tempfile
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.agents.poster import poster_node
@@ -47,25 +48,27 @@ def test_poster_state_updates():
 def test_poster_with_image():
     """Test poster with image to verify image handling"""
     print("Test 3: Poster with image (mock)")
-    state = {
-        "selected_post": "Post with an image!",
-        "image_url": "/tmp/test_image.png",
-    }
     
-    # Create a dummy image file
-    os.makedirs("/tmp", exist_ok=True)
-    with open("/tmp/test_image.png", "w") as f:
-        f.write("dummy")
+    # Create a temporary image file for testing
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.png', delete=False) as tmp_file:
+        tmp_file.write("dummy")
+        tmp_image_path = tmp_file.name
     
-    result = poster_node(state)
-    
-    print(f"Result: {result}")
-    assert "post_status" in result
-    print("✓ Test 3 passed: Image handling doesn't crash\n")
-    
-    # Cleanup
-    if os.path.exists("/tmp/test_image.png"):
-        os.remove("/tmp/test_image.png")
+    try:
+        state = {
+            "selected_post": "Post with an image!",
+            "image_url": tmp_image_path,
+        }
+        
+        result = poster_node(state)
+        
+        print(f"Result: {result}")
+        assert "post_status" in result
+        print("✓ Test 3 passed: Image handling doesn't crash\n")
+    finally:
+        # Cleanup
+        if os.path.exists(tmp_image_path):
+            os.remove(tmp_image_path)
 
 
 if __name__ == "__main__":

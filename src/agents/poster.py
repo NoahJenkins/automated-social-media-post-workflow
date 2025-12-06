@@ -49,6 +49,10 @@ def verify_post_scheduled(post_id: str, user_id: str, blog_id: str, api_token: s
     """
     Verifies that a post was successfully scheduled by retrieving it from Metricool.
     Returns True if the post exists and is scheduled, False otherwise.
+    
+    Note: This makes an additional API call per post. For low-volume workflows
+    (2-3 posts/week), this is acceptable. For high-volume scenarios, consider
+    batch verification or making this optional.
     """
     try:
         headers = {
@@ -182,7 +186,10 @@ def poster_node(state: AgentState):
                 result = response.json()
                 
                 # Extract post ID and status from response
-                post_id = result.get("id") or result.get("data", {}).get("id")
+                # Try both flat structure (result.id) and nested structure (result.data.id)
+                post_id = result.get("id")
+                if post_id is None:
+                    post_id = result.get("data", {}).get("id")
                 status = result.get("status", "unknown")
                 
                 if not post_id:
